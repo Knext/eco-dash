@@ -22,38 +22,44 @@ export async function GET(req: Request) {
 }
 
 async function runFetch() {
-  const results: Array<{ id: string; success: boolean; rows: number; error?: string }> = []
-
-  // Pull a 5-year window so FRED does not have to serialize the entire series
-  // history on every cron call. Without observation_start, FRED returns full
-  // history (decades for some series) and rejects large requests with HTTP 400
-  // under burst conditions.
+  // Pull a 5-year window so FRED does not return decades of history on every
+  // cron call (large responses sometimes return 400 under burst conditions).
   const fiveYearsAgo = new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10)
 
-  for (const def of INDICATORS) {
-    try {
-      const r = await fetchAndStore(def, fiveYearsAgo)
-      results.push({
-        id: def.id,
-        success: r.success,
-        rows: r.rows.length,
-        ...(r.error ? { error: r.error } : {}),
-      })
-    } catch (e: unknown) {
-      results.push({
-        id: def.id,
-        success: false,
-        rows: 0,
-        error: e instanceof Error ? e.message : String(e),
-      })
+  // Serial execution times out on Vercel Hobby (60s maxDuration) because
+  // 24 indicators × ~2s per request exceeds the budget. Run 5 fetchers in
+  // parallel — well within FRED's 120 req/min and yfinance's tolerance —
+  // and the whole batch finishes in ~10s.
+  const CONCURRENCY = 5
+  const queue = [...INDICATORS]
+  const results: Array<{ id: string; success: boolean; rows: number; error?: string }> = []
+
+  async function worker() {
+    while (queue.length > 0) {
+      const def = queue.shift()
+      if (!def) break
+      try {
+        const r = await fetchAndStore(def, fiveYearsAgo)
+        results.push({
+          id: def.id,
+          success: r.success,
+          rows: r.rows.length,
+          ...(r.error ? { error: r.error } : {}),
+        })
+      } catch (e: unknown) {
+        results.push({
+          id: def.id,
+          success: false,
+          rows: 0,
+          error: e instanceof Error ? e.message : String(e),
+        })
+      }
     }
-    // 400ms × 24 indicators = ~10s of sleep budget, leaves time for HTTP
-    // round-trips inside Vercel Hobby's 60s maxDuration. Stays well below
-    // FRED 120 req/min even with retries.
-    await new Promise((resolve) => setTimeout(resolve, 400))
   }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
   return NextResponse.json({
     ts: new Date().toISOString(),
     total: results.length,
