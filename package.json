@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "clean": "rm -rf .next node_modules/.cache",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
