@@ -8,16 +8,16 @@ import { IndicatorHistoryChart } from '@/components/widgets/IndicatorHistoryChar
 
 export const dynamic = 'force-dynamic'
 
-export default function IndicatorPage({ params }: { params: { id: string } }) {
+export default async function IndicatorPage({ params }: { params: { id: string } }) {
   const def = getIndicator(params.id)
   if (!def) notFound()
 
-  const rows = getRecentValues(def.id, 800)
+  const rows = await getRecentValues(def.id, 800)
   const points = toPoints(rows)
   const transformed = def.transform === 'yoy' ? yoy(points) : points
   const latest = lastValue(transformed)
 
-  const allSignals = getRecentSignals(180)
+  const allSignals = await getRecentSignals(180)
   const ruleSignals = allSignals.filter((s) => {
     try {
       const inds = JSON.parse(s.indicators) as string[]

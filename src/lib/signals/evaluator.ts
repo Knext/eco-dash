@@ -9,7 +9,6 @@ import {
   bumpFalseStreak,
   resetFalseStreak,
 } from '../db/queries'
-import { getDb } from '../db/client'
 import {
   lastValue,
   momAnnualized,
@@ -41,10 +40,10 @@ export interface EvaluationContext {
   now: Date
 }
 
-export function buildContext(now: Date = new Date()): EvaluationContext {
+export async function buildContext(now: Date = new Date()): Promise<EvaluationContext> {
   const ctx = new Map<string, IndicatorContext>()
   for (const def of INDICATORS) {
-    const rows = getRecentValues(def.id, 1200)
+    const rows = await getRecentValues(def.id, 1200)
     const rawPoints = toPoints(rows)
     const yoyPoints = def.transform === 'yoy' ? yoy(rawPoints) : []
     const momAnnPoints = momAnnualized(rawPoints)
@@ -151,51 +150,48 @@ export function evaluateRule(rule: SignalRule, ctx: EvaluationContext): boolean 
  * N consecutive false evaluations) to prevent oscillation. Each fire
  * inserts the signal and updates cooldown in a single transaction.
  */
-export function evaluateAll(ctx: EvaluationContext = buildContext()): ActiveSignal[] {
+export async function evaluateAll(ctx?: EvaluationContext): Promise<ActiveSignal[]> {
+  const resolved = ctx ?? (await buildContext())
   const fired: ActiveSignal[] = []
-  const now = ctx.now.toISOString()
-  const db = getDb()
+  const now = resolved.now.toISOString()
 
   for (const rule of RULES) {
-    const triggered = evaluateRule(rule, ctx)
+    const triggered = evaluateRule(rule, resolved)
 
     if (!triggered) {
-      const streak = bumpFalseStreak(rule.id, now)
+      const streak = await bumpFalseStreak(rule.id, now)
       if (streak >= HYSTERESIS_FALSE_THRESHOLD) {
-        resolveSignal(rule.id, now)
+        await resolveSignal(rule.id, now)
       }
       continue
     }
 
-    resetFalseStreak(rule.id, now)
+    await resetFalseStreak(rule.id, now)
 
-    if (!shouldFire(rule, now)) continue
+    if (!(await shouldFire(rule, now))) continue
 
-    const signal = buildSignal(rule, ctx, now)
-    const persist = db.transaction(() => {
-      insertSignal({
-        id: signal.id,
-        rule_id: rule.id,
-        severity: rule.severity,
-        category: rule.category,
-        type: rule.type,
-        triggered_at: now,
-        resolved_at: null,
-        message: signal.message,
-        indicators: JSON.stringify(rule.indicators),
-        action_hint: rule.actionHint,
-        current_value: signal.currentValue ?? null,
-      })
-      upsertCooldown(rule.id, now, rule.severity)
+    const signal = buildSignal(rule, resolved, now)
+    await insertSignal({
+      id: signal.id,
+      rule_id: rule.id,
+      severity: rule.severity,
+      category: rule.category,
+      type: rule.type,
+      triggered_at: now,
+      resolved_at: null,
+      message: signal.message,
+      indicators: JSON.stringify(rule.indicators),
+      action_hint: rule.actionHint,
+      current_value: signal.currentValue ?? null,
     })
-    persist()
+    await upsertCooldown(rule.id, now, rule.severity)
     fired.push(signal)
   }
   return fired
 }
 
-function shouldFire(rule: SignalRule, now: string): boolean {
-  const cd = getCooldown(rule.id)
+async function shouldFire(rule: SignalRule, now: string): Promise<boolean> {
+  const cd = await getCooldown(rule.id)
   if (!cd) return true
 
   if (cd.last_severity === 'warning' && rule.severity === 'critical') return true

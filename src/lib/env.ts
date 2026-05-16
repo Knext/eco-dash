@@ -6,6 +6,8 @@ const envSchema = z.object({
   ALPHA_VANTAGE_KEY: z.string().optional(),
   PUBLIC_DATA_API_KEY: z.string().optional(),
   DB_PATH: z.string().default('./data/timeseries.db'),
+  TURSO_DATABASE_URL: z.string().optional(),
+  TURSO_AUTH_TOKEN: z.string().optional(),
   CRON_SECRET: z
     .string()
     .min(32, 'CRON_SECRET must be at least 32 chars')
@@ -27,6 +29,8 @@ const parseResult = envSchema.safeParse({
   ALPHA_VANTAGE_KEY: process.env.ALPHA_VANTAGE_KEY,
   PUBLIC_DATA_API_KEY: process.env.PUBLIC_DATA_API_KEY,
   DB_PATH: process.env.DB_PATH,
+  TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
+  TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
   CRON_SECRET: process.env.CRON_SECRET,
   DATA_REFRESH_CRON: process.env.DATA_REFRESH_CRON,
   LOG_LEVEL: process.env.LOG_LEVEL,

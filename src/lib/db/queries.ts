@@ -1,200 +1,389 @@
-import { getDb } from './client'
-import type { TimeSeriesRow, SignalRow, CooldownRow, RegimeRow, FetchLogRow, ReleaseRow, RuleStateRow } from './types'
+import { getDb, ensureSchema } from './client'
+import type {
+  TimeSeriesRow,
+  SignalRow,
+  CooldownRow,
+  RegimeRow,
+  FetchLogRow,
+  ReleaseRow,
+  RuleStateRow,
+} from './types'
 
-export function insertTimeseries(rows: Omit<TimeSeriesRow, 'fetched_at'>[]): number {
+type Row = Record<string, unknown>
+
+function asString(v: unknown): string {
+  return v === null || v === undefined ? '' : String(v)
+}
+
+function asStringOrNull(v: unknown): string | null {
+  return v === null || v === undefined ? null : String(v)
+}
+
+function asNumber(v: unknown): number {
+  if (typeof v === 'number') return v
+  if (typeof v === 'bigint') return Number(v)
+  if (typeof v === 'string') return parseFloat(v)
+  return Number(v)
+}
+
+function asInt(v: unknown): number {
+  if (typeof v === 'number') return v
+  if (typeof v === 'bigint') return Number(v)
+  if (typeof v === 'string') return parseInt(v, 10)
+  return Number(v)
+}
+
+function rowToTimeseries(r: Row): TimeSeriesRow {
+  return {
+    indicator_id: asString(r.indicator_id),
+    as_of: asString(r.as_of),
+    value: asNumber(r.value),
+    source: asString(r.source),
+    fetched_at: asString(r.fetched_at),
+  }
+}
+
+function rowToSignal(r: Row): SignalRow {
+  return {
+    id: asString(r.id),
+    rule_id: asString(r.rule_id),
+    severity: asString(r.severity) as SignalRow['severity'],
+    category: asString(r.category),
+    type: asString(r.type) as SignalRow['type'],
+    triggered_at: asString(r.triggered_at),
+    resolved_at: asStringOrNull(r.resolved_at),
+    dismissed_at: asStringOrNull(r.dismissed_at),
+    message: asString(r.message),
+    indicators: asString(r.indicators),
+    action_hint: asStringOrNull(r.action_hint),
+    current_value: asStringOrNull(r.current_value),
+  }
+}
+
+export async function insertTimeseries(
+  rows: Omit<TimeSeriesRow, 'fetched_at'>[],
+): Promise<number> {
   if (rows.length === 0) return 0
+  await ensureSchema()
   const db = getDb()
-  const stmt = db.prepare(`
-    INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
+  const sql = `INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
     VALUES (?, ?, ?, ?, datetime('now'))
     ON CONFLICT(indicator_id, as_of, source) DO UPDATE SET
       value = excluded.value,
-      fetched_at = excluded.fetched_at
-  `)
-  const tx = db.transaction((items: Omit<TimeSeriesRow, 'fetched_at'>[]) => {
+      fetched_at = excluded.fetched_at`
+  const tx = await db.transaction('write')
+  try {
     let n = 0
-    for (const r of items) {
-      stmt.run(r.indicator_id, r.as_of, r.value, r.source)
+    for (const r of rows) {
+      await tx.execute({ sql, args: [r.indicator_id, r.as_of, r.value, r.source] })
       n++
     }
+    await tx.commit()
     return n
-  })
-  return tx(rows)
-}
-
-export function getLatestValue(indicatorId: string): TimeSeriesRow | undefined {
-  const db = getDb()
-  return db.prepare(`
-    SELECT * FROM timeseries
-    WHERE indicator_id = ?
-    ORDER BY as_of DESC
-    LIMIT 1
-  `).get(indicatorId) as TimeSeriesRow | undefined
-}
-
-export function getRecentValues(indicatorId: string, days: number = 90): TimeSeriesRow[] {
-  const db = getDb()
-  return db.prepare(`
-    SELECT * FROM timeseries
-    WHERE indicator_id = ?
-      AND as_of >= date('now', '-' || ? || ' days')
-    ORDER BY as_of ASC
-  `).all(indicatorId, days) as TimeSeriesRow[]
-}
-
-export function getAllLatest(indicatorIds: string[]): Map<string, TimeSeriesRow> {
-  const db = getDb()
-  const map = new Map<string, TimeSeriesRow>()
-  const stmt = db.prepare(`
-    SELECT t.* FROM timeseries t
-    WHERE t.indicator_id = ?
-    ORDER BY t.as_of DESC
-    LIMIT 1
-  `)
-  for (const id of indicatorIds) {
-    const row = stmt.get(id) as TimeSeriesRow | undefined
-    if (row) map.set(id, row)
+  } catch (e) {
+    await tx.rollback()
+    throw e
   }
-  return map
 }
 
-export function insertSignal(row: Omit<SignalRow, 'resolved_at' | 'dismissed_at'> & { resolved_at?: string | null }): void {
+export async function getLatestValue(indicatorId: string): Promise<TimeSeriesRow | undefined> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT OR REPLACE INTO signals
+  const res = await db.execute({
+    sql: `SELECT * FROM timeseries WHERE indicator_id = ? ORDER BY as_of DESC LIMIT 1`,
+    args: [indicatorId],
+  })
+  const first = res.rows[0]
+  return first ? rowToTimeseries(first as Row) : undefined
+}
+
+export async function getRecentValues(
+  indicatorId: string,
+  days: number = 90,
+): Promise<TimeSeriesRow[]> {
+  await ensureSchema()
+  const db = getDb()
+  const res = await db.execute({
+    sql: `SELECT * FROM timeseries
+          WHERE indicator_id = ?
+            AND as_of >= date('now', '-' || ? || ' days')
+          ORDER BY as_of ASC`,
+    args: [indicatorId, days],
+  })
+  return res.rows.map((r) => rowToTimeseries(r as Row))
+}
+
+export async function insertSignal(
+  row: Omit<SignalRow, 'resolved_at' | 'dismissed_at'> & { resolved_at?: string | null },
+): Promise<void> {
+  await ensureSchema()
+  const db = getDb()
+  await db.execute({
+    sql: `INSERT OR REPLACE INTO signals
       (id, rule_id, severity, category, type, triggered_at, resolved_at, dismissed_at, message, indicators, action_hint, current_value)
-    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-  `).run(
-    row.id, row.rule_id, row.severity, row.category, row.type,
-    row.triggered_at, row.resolved_at ?? null, row.message, row.indicators,
-    row.action_hint ?? null, row.current_value ?? null,
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+    args: [
+      row.id,
+      row.rule_id,
+      row.severity,
+      row.category,
+      row.type,
+      row.triggered_at,
+      row.resolved_at ?? null,
+      row.message,
+      row.indicators,
+      row.action_hint ?? null,
+      row.current_value ?? null,
+    ],
+  })
+}
+
+export async function resolveSignal(ruleId: string, resolvedAt: string): Promise<void> {
+  await ensureSchema()
+  const db = getDb()
+  await db.execute({
+    sql: `UPDATE signals SET resolved_at = ?
+          WHERE rule_id = ? AND resolved_at IS NULL AND dismissed_at IS NULL`,
+    args: [resolvedAt, ruleId],
+  })
+}
+
+export async function dismissSignal(signalId: string): Promise<void> {
+  await ensureSchema()
+  const db = getDb()
+  await db.execute({
+    sql: `UPDATE signals SET dismissed_at = datetime('now') WHERE id = ?`,
+    args: [signalId],
+  })
+}
+
+export async function getActiveSignals(): Promise<SignalRow[]> {
+  await ensureSchema()
+  const db = getDb()
+  const res = await db.execute(
+    `SELECT * FROM signals
+     WHERE resolved_at IS NULL AND dismissed_at IS NULL
+     ORDER BY
+       CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+       triggered_at DESC`,
   )
+  return res.rows.map((r) => rowToSignal(r as Row))
 }
 
-export function resolveSignal(ruleId: string, resolvedAt: string): void {
+export async function getRecentSignals(days: number = 30): Promise<SignalRow[]> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    UPDATE signals SET resolved_at = ?
-    WHERE rule_id = ? AND resolved_at IS NULL AND dismissed_at IS NULL
-  `).run(resolvedAt, ruleId)
+  const res = await db.execute({
+    sql: `SELECT * FROM signals
+          WHERE triggered_at >= datetime('now', '-' || ? || ' days')
+          ORDER BY triggered_at DESC`,
+    args: [days],
+  })
+  return res.rows.map((r) => rowToSignal(r as Row))
 }
 
-export function getRuleState(ruleId: string): RuleStateRow | undefined {
+export async function getCooldown(ruleId: string): Promise<CooldownRow | undefined> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`SELECT * FROM rule_state WHERE rule_id = ?`).get(ruleId) as RuleStateRow | undefined
+  const res = await db.execute({
+    sql: `SELECT * FROM rule_cooldown WHERE rule_id = ?`,
+    args: [ruleId],
+  })
+  const r = res.rows[0]
+  if (!r) return undefined
+  const row = r as Row
+  return {
+    rule_id: asString(row.rule_id),
+    last_triggered_at: asString(row.last_triggered_at),
+    last_severity: asString(row.last_severity),
+  }
 }
 
-export function bumpFalseStreak(ruleId: string, evaluatedAt: string): number {
+export async function upsertCooldown(
+  ruleId: string,
+  triggeredAt: string,
+  severity: string,
+): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT INTO rule_state (rule_id, consecutive_false, last_evaluated_at)
-    VALUES (?, 1, ?)
-    ON CONFLICT(rule_id) DO UPDATE SET
-      consecutive_false = consecutive_false + 1,
-      last_evaluated_at = excluded.last_evaluated_at
-  `).run(ruleId, evaluatedAt)
-  const row = db.prepare(`SELECT consecutive_false FROM rule_state WHERE rule_id = ?`).get(ruleId) as { consecutive_false: number } | undefined
-  return row?.consecutive_false ?? 0
+  await db.execute({
+    sql: `INSERT INTO rule_cooldown (rule_id, last_triggered_at, last_severity)
+          VALUES (?, ?, ?)
+          ON CONFLICT(rule_id) DO UPDATE SET
+            last_triggered_at = excluded.last_triggered_at,
+            last_severity = excluded.last_severity`,
+    args: [ruleId, triggeredAt, severity],
+  })
 }
 
-export function resetFalseStreak(ruleId: string, evaluatedAt: string): void {
+export async function getRuleState(ruleId: string): Promise<RuleStateRow | undefined> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT INTO rule_state (rule_id, consecutive_false, last_evaluated_at)
-    VALUES (?, 0, ?)
-    ON CONFLICT(rule_id) DO UPDATE SET
-      consecutive_false = 0,
-      last_evaluated_at = excluded.last_evaluated_at
-  `).run(ruleId, evaluatedAt)
+  const res = await db.execute({
+    sql: `SELECT * FROM rule_state WHERE rule_id = ?`,
+    args: [ruleId],
+  })
+  const r = res.rows[0]
+  if (!r) return undefined
+  const row = r as Row
+  return {
+    rule_id: asString(row.rule_id),
+    consecutive_false: asInt(row.consecutive_false),
+    last_evaluated_at: asStringOrNull(row.last_evaluated_at),
+  }
 }
 
-export function dismissSignal(signalId: string): void {
+export async function bumpFalseStreak(ruleId: string, evaluatedAt: string): Promise<number> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`UPDATE signals SET dismissed_at = datetime('now') WHERE id = ?`).run(signalId)
+  await db.execute({
+    sql: `INSERT INTO rule_state (rule_id, consecutive_false, last_evaluated_at)
+          VALUES (?, 1, ?)
+          ON CONFLICT(rule_id) DO UPDATE SET
+            consecutive_false = consecutive_false + 1,
+            last_evaluated_at = excluded.last_evaluated_at`,
+    args: [ruleId, evaluatedAt],
+  })
+  const r = await db.execute({
+    sql: `SELECT consecutive_false FROM rule_state WHERE rule_id = ?`,
+    args: [ruleId],
+  })
+  const row = r.rows[0]
+  return row ? asInt((row as Row).consecutive_false) : 0
 }
 
-export function getActiveSignals(): SignalRow[] {
+export async function resetFalseStreak(ruleId: string, evaluatedAt: string): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`
-    SELECT * FROM signals
-    WHERE resolved_at IS NULL AND dismissed_at IS NULL
-    ORDER BY
-      CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
-      triggered_at DESC
-  `).all() as SignalRow[]
+  await db.execute({
+    sql: `INSERT INTO rule_state (rule_id, consecutive_false, last_evaluated_at)
+          VALUES (?, 0, ?)
+          ON CONFLICT(rule_id) DO UPDATE SET
+            consecutive_false = 0,
+            last_evaluated_at = excluded.last_evaluated_at`,
+    args: [ruleId, evaluatedAt],
+  })
 }
 
-export function getRecentSignals(days: number = 30): SignalRow[] {
+export async function getCurrentRegime(): Promise<RegimeRow | undefined> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`
-    SELECT * FROM signals
-    WHERE triggered_at >= datetime('now', '-' || ? || ' days')
-    ORDER BY triggered_at DESC
-  `).all(days) as SignalRow[]
+  const res = await db.execute(
+    `SELECT * FROM regime_history ORDER BY entered_at DESC LIMIT 1`,
+  )
+  const r = res.rows[0]
+  if (!r) return undefined
+  const row = r as Row
+  return {
+    entered_at: asString(row.entered_at),
+    regime: asString(row.regime) as RegimeRow['regime'],
+    confidence: row.confidence !== null && row.confidence !== undefined ? asNumber(row.confidence) : null,
+    trigger_summary: asStringOrNull(row.trigger_summary),
+  }
 }
 
-export function getCooldown(ruleId: string): CooldownRow | undefined {
+export async function getPreviousRegime(): Promise<RegimeRow | undefined> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`SELECT * FROM rule_cooldown WHERE rule_id = ?`).get(ruleId) as CooldownRow | undefined
+  const res = await db.execute(
+    `SELECT * FROM regime_history ORDER BY entered_at DESC LIMIT 1 OFFSET 1`,
+  )
+  const r = res.rows[0]
+  if (!r) return undefined
+  const row = r as Row
+  return {
+    entered_at: asString(row.entered_at),
+    regime: asString(row.regime) as RegimeRow['regime'],
+    confidence: row.confidence !== null && row.confidence !== undefined ? asNumber(row.confidence) : null,
+    trigger_summary: asStringOrNull(row.trigger_summary),
+  }
 }
 
-export function upsertCooldown(ruleId: string, triggeredAt: string, severity: string): void {
+export async function insertRegime(row: {
+  entered_at: string
+  regime: RegimeRow['regime']
+  confidence?: number
+  trigger_summary?: string
+}): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT INTO rule_cooldown (rule_id, last_triggered_at, last_severity)
-    VALUES (?, ?, ?)
-    ON CONFLICT(rule_id) DO UPDATE SET
-      last_triggered_at = excluded.last_triggered_at,
-      last_severity = excluded.last_severity
-  `).run(ruleId, triggeredAt, severity)
+  await db.execute({
+    sql: `INSERT OR REPLACE INTO regime_history (entered_at, regime, confidence, trigger_summary)
+          VALUES (?, ?, ?, ?)`,
+    args: [row.entered_at, row.regime, row.confidence ?? null, row.trigger_summary ?? null],
+  })
 }
 
-export function getCurrentRegime(): RegimeRow | undefined {
-  const db = getDb()
-  return db.prepare(`SELECT * FROM regime_history ORDER BY entered_at DESC LIMIT 1`).get() as RegimeRow | undefined
-}
-
-export function getPreviousRegime(): RegimeRow | undefined {
-  const db = getDb()
-  return db.prepare(`SELECT * FROM regime_history ORDER BY entered_at DESC LIMIT 1 OFFSET 1`).get() as RegimeRow | undefined
-}
-
-export function insertRegime(row: Omit<RegimeRow, 'confidence' | 'trigger_summary'> & { confidence?: number; trigger_summary?: string }): void {
-  const db = getDb()
-  db.prepare(`
-    INSERT OR REPLACE INTO regime_history (entered_at, regime, confidence, trigger_summary)
-    VALUES (?, ?, ?, ?)
-  `).run(row.entered_at, row.regime, row.confidence ?? null, row.trigger_summary ?? null)
-}
-
-export function logFetch(
+export async function logFetch(
   source: string,
   indicatorId: string | null,
   success: boolean,
   rowsInserted: number,
   error: string | null,
   durationMs: number,
-): void {
+): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT INTO fetch_log (source, indicator_id, fetched_at, success, rows_inserted, error, duration_ms)
-    VALUES (?, ?, datetime('now'), ?, ?, ?, ?)
-  `).run(source, indicatorId, success ? 1 : 0, rowsInserted, error, durationMs)
+  await db.execute({
+    sql: `INSERT INTO fetch_log (source, indicator_id, fetched_at, success, rows_inserted, error, duration_ms)
+          VALUES (?, ?, datetime('now'), ?, ?, ?, ?)`,
+    args: [source, indicatorId, success ? 1 : 0, rowsInserted, error, durationMs],
+  })
 }
 
-export function getRecentFetchLog(limit: number = 50): FetchLogRow[] {
+export async function getRecentFetchLog(limit: number = 50): Promise<FetchLogRow[]> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`SELECT * FROM fetch_log ORDER BY fetched_at DESC LIMIT ?`).all(limit) as FetchLogRow[]
+  const res = await db.execute({
+    sql: `SELECT * FROM fetch_log ORDER BY fetched_at DESC LIMIT ?`,
+    args: [limit],
+  })
+  return res.rows.map((r) => {
+    const row = r as Row
+    return {
+      id: asInt(row.id),
+      source: asString(row.source),
+      indicator_id: asStringOrNull(row.indicator_id),
+      fetched_at: asString(row.fetched_at),
+      success: asInt(row.success) as 0 | 1,
+      rows_inserted: asInt(row.rows_inserted),
+      error: asStringOrNull(row.error),
+      duration_ms: row.duration_ms !== null && row.duration_ms !== undefined ? asInt(row.duration_ms) : null,
+    }
+  })
 }
 
-export function getUpcomingReleases(days: number = 7): ReleaseRow[] {
+export async function getUpcomingReleases(days: number = 7): Promise<ReleaseRow[]> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`
-    SELECT * FROM release_schedule
-    WHERE due_at_kst >= datetime('now')
-      AND due_at_kst < datetime('now', '+' || ? || ' days')
-    ORDER BY due_at_kst ASC
-  `).all(days) as ReleaseRow[]
+  const res = await db.execute({
+    sql: `SELECT * FROM release_schedule
+          WHERE due_at_kst >= datetime('now')
+            AND due_at_kst < datetime('now', '+' || ? || ' days')
+          ORDER BY due_at_kst ASC`,
+    args: [days],
+  })
+  return res.rows.map((r) => {
+    const row = r as Row
+    return {
+      id: asString(row.id),
+      event_name: asString(row.event_name),
+      country: asString(row.country),
+      due_at_et: asString(row.due_at_et),
+      due_at_kst: asString(row.due_at_kst),
+      importance: asInt(row.importance) as 1 | 2 | 3,
+    }
+  })
+}
+
+export async function upsertRelease(row: ReleaseRow): Promise<void> {
+  await ensureSchema()
+  const db = getDb()
+  await db.execute({
+    sql: `INSERT OR REPLACE INTO release_schedule (id, event_name, country, due_at_et, due_at_kst, importance)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [row.id, row.event_name, row.country, row.due_at_et, row.due_at_kst, row.importance],
+  })
 }
 
 export interface ManualOverrideRow {
@@ -205,36 +394,46 @@ export interface ManualOverrideRow {
   note: string | null
 }
 
-export function getManualOverrides(indicatorId: string): ManualOverrideRow[] {
+export async function getManualOverrides(indicatorId: string): Promise<ManualOverrideRow[]> {
+  await ensureSchema()
   const db = getDb()
-  return db.prepare(`
-    SELECT * FROM manual_overrides
-    WHERE indicator_id = ?
-    ORDER BY as_of ASC
-  `).all(indicatorId) as ManualOverrideRow[]
+  const res = await db.execute({
+    sql: `SELECT * FROM manual_overrides WHERE indicator_id = ? ORDER BY as_of ASC`,
+    args: [indicatorId],
+  })
+  return res.rows.map((r) => {
+    const row = r as Row
+    return {
+      indicator_id: asString(row.indicator_id),
+      as_of: asString(row.as_of),
+      value: asNumber(row.value),
+      entered_at: asString(row.entered_at),
+      note: asStringOrNull(row.note),
+    }
+  })
 }
 
-export function upsertManualOverride(row: Omit<ManualOverrideRow, 'entered_at'>): void {
+export async function upsertManualOverride(
+  row: Omit<ManualOverrideRow, 'entered_at'>,
+): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`
-    INSERT INTO manual_overrides (indicator_id, as_of, value, entered_at, note)
-    VALUES (?, ?, ?, datetime('now'), ?)
-    ON CONFLICT(indicator_id, as_of) DO UPDATE SET
-      value = excluded.value,
-      entered_at = excluded.entered_at,
-      note = excluded.note
-  `).run(row.indicator_id, row.as_of, row.value, row.note)
+  await db.execute({
+    sql: `INSERT INTO manual_overrides (indicator_id, as_of, value, entered_at, note)
+          VALUES (?, ?, ?, datetime('now'), ?)
+          ON CONFLICT(indicator_id, as_of) DO UPDATE SET
+            value = excluded.value,
+            entered_at = excluded.entered_at,
+            note = excluded.note`,
+    args: [row.indicator_id, row.as_of, row.value, row.note],
+  })
 }
 
-export function deleteManualOverride(indicatorId: string, asOf: string): void {
+export async function deleteManualOverride(indicatorId: string, asOf: string): Promise<void> {
+  await ensureSchema()
   const db = getDb()
-  db.prepare(`DELETE FROM manual_overrides WHERE indicator_id = ? AND as_of = ?`).run(indicatorId, asOf)
-}
-
-export function upsertRelease(row: ReleaseRow): void {
-  const db = getDb()
-  db.prepare(`
-    INSERT OR REPLACE INTO release_schedule (id, event_name, country, due_at_et, due_at_kst, importance)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(row.id, row.event_name, row.country, row.due_at_et, row.due_at_kst, row.importance)
+  await db.execute({
+    sql: `DELETE FROM manual_overrides WHERE indicator_id = ? AND as_of = ?`,
+    args: [indicatorId, asOf],
+  })
 }

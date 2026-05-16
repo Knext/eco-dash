@@ -1,14 +1,14 @@
 import './load-env'
 import { INDICATORS } from '../src/lib/indicators/definitions'
 import { fetchAndStore } from '../src/lib/sources'
-import { getDb } from '../src/lib/db/client'
+import { ensureSchema } from '../src/lib/db/client'
 
 const FIVE_YEARS_AGO = new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000)
   .toISOString()
   .slice(0, 10)
 
 async function main() {
-  getDb()
+  await ensureSchema()
   console.log(`Backfilling ${INDICATORS.length} indicators from ${FIVE_YEARS_AGO}...`)
   let ok = 0
   let fail = 0

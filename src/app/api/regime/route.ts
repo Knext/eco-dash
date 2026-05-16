@@ -4,8 +4,8 @@ import { getCurrentRegime, getPreviousRegime } from '@/lib/db/queries'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const current = getCurrentRegime()
-  const previous = getPreviousRegime()
+  const current = await getCurrentRegime()
+  const previous = await getPreviousRegime()
   if (!current) {
     return NextResponse.json({
       current: 'risk_on',

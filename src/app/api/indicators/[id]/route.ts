@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const def = getIndicator(params.id)
   if (!def) return NextResponse.json({ error: 'Unknown indicator' }, { status: 404 })
-  const rows = getRecentValues(def.id, 800)
+  const rows = await getRecentValues(def.id, 800)
   const points = toPoints(rows)
   const transformed = def.transform === 'yoy' ? yoy(points) : points
   return NextResponse.json({

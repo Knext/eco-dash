@@ -10,9 +10,9 @@ async function handler(req: Request) {
   if (!checkBearer(req.headers.get('authorization'))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
-  const ctx = buildContext()
-  const signals = evaluateAll(ctx)
-  const regime = classifyRegime(ctx)
+  const ctx = await buildContext()
+  const signals = await evaluateAll(ctx)
+  const regime = await classifyRegime(ctx)
   return NextResponse.json({
     ts: new Date().toISOString(),
     firedSignals: signals.length,

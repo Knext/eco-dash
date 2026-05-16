@@ -5,8 +5,8 @@ import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export default function AlertsPage() {
-  const signals = getRecentSignals(60)
+export default async function AlertsPage() {
+  const signals = await getRecentSignals(60)
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <Header />

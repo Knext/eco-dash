@@ -168,9 +168,9 @@ GitHub Actions로 Vercel에 자동 배포합니다. 자세한 설정은 [`docs/D
 - PR → preview URL을 PR에 코멘트
 - Vercel Cron이 매일 자정 KST에 `/api/cron/fetch` + `/api/cron/evaluate`를 자동 호출
 - 필요한 GitHub Secrets: `VERCEL_TOKEN`, `CRON_SECRET`
-- 필요한 Vercel 환경변수: `FRED_API_KEY`, `ECOS_API_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_BASE_URL`
+- 필요한 Vercel 환경변수: `FRED_API_KEY`, `ECOS_API_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_BASE_URL`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
 
-**주의**: Vercel serverless filesystem은 ephemeral이라 `better-sqlite3` 데이터가 콜드 스타트마다 사라집니다. 영속성 필요 시 Turso (libSQL, SQLite 호환) 마이그레이션 권장 — `docs/DEPLOY_VERCEL.md`의 데이터 영속성 섹션 참조.
+**DB**: 로컬은 `./data/timeseries.db` (SQLite 파일), Vercel은 **Turso (libSQL, SQLite 호환)** 매니지드 DB. `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`이 설정되면 자동 전환. 자세한 셋업은 [`docs/DEPLOY_VERCEL.md`](./docs/DEPLOY_VERCEL.md)의 Turso 섹션 참조.
 
 ## 비용
 

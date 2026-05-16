@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const mode = ModeSchema.parse(url.searchParams.get('mode') ?? undefined)
   const days = DaysSchema.parse(url.searchParams.get('days') ?? undefined)
 
-  const rows = mode === 'history' ? getRecentSignals(days) : getActiveSignals()
+  const rows = mode === 'history' ? await getRecentSignals(days) : await getActiveSignals()
   const signals = rows.map((r) => {
     let indicators: string[] = []
     try {
@@ -59,6 +59,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid payload' }, { status: 400 })
   }
 
-  dismissSignal(parsed.data.id)
+  await dismissSignal(parsed.data.id)
   return NextResponse.json({ ok: true })
 }

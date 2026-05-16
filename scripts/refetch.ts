@@ -1,7 +1,7 @@
 import './load-env'
 import { INDICATORS } from '../src/lib/indicators/definitions'
 import { fetchAndStore } from '../src/lib/sources'
-import { getDb } from '../src/lib/db/client'
+import { ensureSchema } from '../src/lib/db/client'
 
 const ids = process.argv.slice(2)
 if (ids.length === 0) {
@@ -10,7 +10,7 @@ if (ids.length === 0) {
 }
 
 async function main() {
-  getDb()
+  await ensureSchema()
   for (const id of ids) {
     const def = INDICATORS.find((i) => i.id === id)
     if (!def) {

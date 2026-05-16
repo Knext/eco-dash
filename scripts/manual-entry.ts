@@ -1,5 +1,5 @@
 import './load-env'
-import { getDb } from '../src/lib/db/client'
+import { ensureSchema } from '../src/lib/db/client'
 import { upsertManualOverride, deleteManualOverride, getManualOverrides } from '../src/lib/db/queries'
 import { getIndicator, INDICATORS } from '../src/lib/indicators/definitions'
 
@@ -20,8 +20,8 @@ Examples:
   npm run manual-entry -- --delete KR_EXPORT 2026-04-01
 `
 
-function main() {
-  getDb()
+async function main() {
+  await ensureSchema()
   const args = process.argv.slice(2)
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     console.log(USAGE)
@@ -34,7 +34,7 @@ function main() {
       console.error('--list requires <indicator_id>')
       process.exit(1)
     }
-    const rows = getManualOverrides(id)
+    const rows = await getManualOverrides(id)
     if (rows.length === 0) {
       console.log(`(empty) no entries for ${id}`)
       return
@@ -52,7 +52,7 @@ function main() {
       console.error('--delete requires <indicator_id> <YYYY-MM-DD>')
       process.exit(1)
     }
-    deleteManualOverride(id, asOf)
+    await deleteManualOverride(id, asOf)
     console.log(`deleted ${id} @ ${asOf}`)
     return
   }
@@ -83,8 +83,11 @@ function main() {
   }
 
   const note = noteParts.length > 0 ? noteParts.join(' ') : null
-  upsertManualOverride({ indicator_id: id, as_of: asOf, value, note })
-  console.log(`✓ ${id} @ ${asOf} = ${value} ${note ? `(${note})` : ''}`)
+  await upsertManualOverride({ indicator_id: id, as_of: asOf, value, note })
+  console.log(`${id} @ ${asOf} = ${value} ${note ? `(${note})` : ''}`)
 }
 
-main()
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

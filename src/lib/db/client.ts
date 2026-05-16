@@ -1,34 +1,47 @@
-import Database from 'better-sqlite3'
-import { readFileSync, mkdirSync, existsSync } from 'node:fs'
+import { createClient, type Client } from '@libsql/client'
+import { mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { env } from '../env'
+import { SCHEMA_STATEMENTS } from './schema'
 
-let _db: Database.Database | null = null
+let _client: Client | null = null
+let _schemaApplied = false
 
-export function getDb(): Database.Database {
-  if (_db) return _db
+/**
+ * Lazily build a single libsql client. Uses Turso when TURSO_DATABASE_URL is
+ * set, otherwise opens a local file. The schema is applied once per process.
+ */
+export function getDb(): Client {
+  if (_client) return _client
 
-  const dbPath = resolve(process.cwd(), env.DB_PATH)
-  const dir = dirname(dbPath)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-
-  const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-
-  const schemaPath = resolve(process.cwd(), 'src/lib/db/schema.sql')
-  if (existsSync(schemaPath)) {
-    const schema = readFileSync(schemaPath, 'utf-8')
-    db.exec(schema)
+  if (env.TURSO_DATABASE_URL) {
+    _client = createClient({
+      url: env.TURSO_DATABASE_URL,
+      ...(env.TURSO_AUTH_TOKEN ? { authToken: env.TURSO_AUTH_TOKEN } : {}),
+    })
+  } else {
+    const dbPath = resolve(process.cwd(), env.DB_PATH)
+    const dir = dirname(dbPath)
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    _client = createClient({ url: `file:${dbPath}` })
   }
 
-  _db = db
-  return db
+  return _client
 }
 
-export function closeDb(): void {
-  if (_db) {
-    _db.close()
-    _db = null
+export async function ensureSchema(): Promise<void> {
+  if (_schemaApplied) return
+  const db = getDb()
+  for (const stmt of SCHEMA_STATEMENTS) {
+    await db.execute(stmt)
+  }
+  _schemaApplied = true
+}
+
+export async function closeDb(): Promise<void> {
+  if (_client) {
+    _client.close()
+    _client = null
+    _schemaApplied = false
   }
 }

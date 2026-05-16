@@ -11,7 +11,7 @@ export const manualFetcher: SourceFetcher = {
   name: 'manual',
   async fetch(indicatorId): Promise<FetchResult> {
     const start = Date.now()
-    const rows = getManualOverrides(indicatorId)
+    const rows = await getManualOverrides(indicatorId)
     if (rows.length === 0) {
       return {
         indicatorId,

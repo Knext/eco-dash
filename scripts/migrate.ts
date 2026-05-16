@@ -1,7 +1,17 @@
 import './load-env'
-import { getDb } from '../src/lib/db/client'
+import { getDb, ensureSchema } from '../src/lib/db/client'
 
-const db = getDb()
-const r = db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all()
-console.log('Tables:', r)
-console.log('Migration applied (schema.sql is auto-applied on connect).')
+async function main() {
+  await ensureSchema()
+  const db = getDb()
+  const r = await db.execute(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
+  console.log('Tables:')
+  for (const row of r.rows) {
+    console.log(`  ${(row as Record<string, unknown>).name}`)
+  }
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

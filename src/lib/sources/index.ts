@@ -48,7 +48,7 @@ export async function fetchAndStore(def: IndicatorDef, startDate?: string): Prom
   const result = await fetchIndicator(def, startDate)
   let inserted = 0
   if (result.success && result.rows.length > 0) {
-    inserted = insertTimeseries(
+    inserted = await insertTimeseries(
       result.rows.map((r) => ({
         indicator_id: def.id,
         as_of: r.asOf,
@@ -57,7 +57,7 @@ export async function fetchAndStore(def: IndicatorDef, startDate?: string): Prom
       })),
     )
   }
-  logFetch(result.source, def.id, result.success, inserted, result.error ?? null, result.durationMs)
+  await logFetch(result.source, def.id, result.success, inserted, result.error ?? null, result.durationMs)
   return result
 }
 

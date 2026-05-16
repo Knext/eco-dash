@@ -2,7 +2,7 @@ import { getCurrentRegime, insertRegime } from '../db/queries'
 import type { EvaluationContext } from './evaluator'
 import type { Regime, RegimeAssessment } from './types'
 
-export function classifyRegime(ctx: EvaluationContext): RegimeAssessment {
+export async function classifyRegime(ctx: EvaluationContext): Promise<RegimeAssessment> {
   const vix = ctx.indicators.get('VIXCLS')
   const hy = ctx.indicators.get('BAMLH0A0HYM2')
   const cpi = ctx.indicators.get('CPILFESL')
@@ -57,12 +57,12 @@ export function classifyRegime(ctx: EvaluationContext): RegimeAssessment {
     if (hyLatest !== null) triggers.push(`HY ${hyLatest.toFixed(2)}%`)
   }
 
-  const current = getCurrentRegime()
+  const current = await getCurrentRegime()
   const prevRegime = current?.regime ?? null
   const enteredAt = current?.regime === regime ? current.entered_at : ctx.now.toISOString()
 
   if (!current || current.regime !== regime) {
-    insertRegime({
+    await insertRegime({
       entered_at: enteredAt,
       regime,
       confidence: 0.7,

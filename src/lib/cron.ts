@@ -24,9 +24,9 @@ export function startLocalCron(): void {
         await fetchAndStore(def)
         await new Promise((r) => setTimeout(r, 800))
       }
-      const ctx = buildContext()
-      const fired = evaluateAll(ctx)
-      const regime = classifyRegime(ctx)
+      const ctx = await buildContext()
+      const fired = await evaluateAll(ctx)
+      const regime = await classifyRegime(ctx)
       console.log(`[cron] done. fired=${fired.length} regime=${regime.current}`)
     } catch (e) {
       console.error('[cron] error:', e)
