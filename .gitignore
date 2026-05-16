@@ -20,3 +20,5 @@ coverage
 .vitest-cache
 .tsbuildinfo
 *.tsbuildinfo
+
+.claude/settings.local.json
