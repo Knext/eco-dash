@@ -19,16 +19,34 @@ export const ecosFetcher: SourceFetcher = {
       }
     }
 
+    // sourceId can encode an ITEM_CODE: "STAT_CODE/ITEM_CODE" (ECOS series
+    // like 731Y001 hold multiple currencies — without the item code, all
+    // currencies collapse onto the same PK and clobber each other).
+    const [statCode, itemCode] = sourceId.split('/')
+    if (!statCode) {
+      return {
+        indicatorId,
+        source: 'ecos',
+        rows: [],
+        success: false,
+        error: `invalid sourceId: ${sourceId}`,
+        durationMs: Date.now() - start,
+      }
+    }
+
     const today = new Date()
     const end = today.toISOString().slice(0, 10).replace(/-/g, '')
+    // ECOS returns at most 1000 rows per request. Daily cycle → roughly 3 years.
     const startStr = startDate
       ? startDate.replace(/-/g, '')
-      : new Date(today.getTime() - 5 * 365 * 24 * 60 * 60 * 1000)
+      : new Date(today.getTime() - 3 * 365 * 24 * 60 * 60 * 1000)
           .toISOString()
           .slice(0, 10)
           .replace(/-/g, '')
 
-    const url = `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/1/1000/${sourceId}/D/${startStr}/${end}`
+    const url = itemCode
+      ? `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/1/1000/${statCode}/D/${startStr}/${end}/${itemCode}`
+      : `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/1/1000/${statCode}/D/${startStr}/${end}`
 
     try {
       const res = await fetch(url, { headers: { 'User-Agent': 'economy-dashboard/0.1' } })
