@@ -39,7 +39,10 @@ export const fredFetcher: SourceFetcher = {
 
     try {
       const res = await fetchWithRetry(url.toString())
-      if (!res.ok) throw new Error(`FRED HTTP ${res.status}`)
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(`FRED HTTP ${res.status}: ${body.slice(0, 200)}`)
+      }
       const json = await res.json()
       const parsed = ResponseSchema.parse(json)
       const rows = parsed.observations

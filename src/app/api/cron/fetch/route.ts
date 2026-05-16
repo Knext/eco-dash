@@ -28,11 +28,11 @@ async function runFetch() {
     .toISOString()
     .slice(0, 10)
 
-  // Serial execution times out on Vercel Hobby (60s maxDuration) because
-  // 24 indicators × ~2s per request exceeds the budget. Run 5 fetchers in
-  // parallel — well within FRED's 120 req/min and yfinance's tolerance —
-  // and the whole batch finishes in ~10s.
-  const CONCURRENCY = 5
+  // Serial execution times out on Vercel Hobby (60s). Run 3 workers in
+  // parallel — FRED has been observed to return HTTP 400 for some series
+  // when 5+ concurrent requests hit it from Vercel data centers, so we
+  // stay conservative.
+  const CONCURRENCY = 3
   const queue = [...INDICATORS]
   const results: Array<{ id: string; success: boolean; rows: number; error?: string }> = []
 
