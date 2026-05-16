@@ -1,0 +1,16 @@
+.env*
+!.env.example
+data/*.db*
+data/seed
+_workspace
+.claude
+INVESTMENT_DASHBOARD_DESIGN.md
+docs
+tests
+*.test.ts
+*.spec.ts
+coverage
+.vitest-cache
+.github
+*.bak
+*.tsbuildinfo
