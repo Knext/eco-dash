@@ -7,7 +7,7 @@ export type Category =
   | 'fx'
   | 'commodity'
 
-export type SourceType = 'fred' | 'ecos' | 'kita' | 'yfinance' | 'stooq' | 'manual'
+export type SourceType = 'fred' | 'ecos' | 'kita' | 'kosis' | 'yfinance' | 'stooq' | 'manual'
 
 export type Cadence = 'daily' | 'weekly' | 'monthly'
 

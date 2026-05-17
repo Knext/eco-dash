@@ -3,6 +3,7 @@ import { insertTimeseries, logFetch } from '../db/queries'
 import { fredFetcher } from './fred'
 import { ecosFetcher } from './ecos'
 import { kitaFetcher } from './kita'
+import { kosisFetcher } from './kosis'
 import { yfinanceFetcher } from './yfinance'
 import { stooqFetcher } from './stooq'
 import { manualFetcher } from './manual'
@@ -12,6 +13,7 @@ const FETCHERS: Record<string, SourceFetcher> = {
   fred: fredFetcher,
   ecos: ecosFetcher,
   kita: kitaFetcher,
+  kosis: kosisFetcher,
   yfinance: yfinanceFetcher,
   stooq: stooqFetcher,
   manual: manualFetcher,
@@ -70,4 +72,4 @@ export async function fetchAndStore(def: IndicatorDef, startDate?: string): Prom
   return result
 }
 
-export { fredFetcher, ecosFetcher, kitaFetcher, yfinanceFetcher, stooqFetcher, manualFetcher }
+export { fredFetcher, ecosFetcher, kitaFetcher, kosisFetcher, yfinanceFetcher, stooqFetcher, manualFetcher }

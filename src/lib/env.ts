@@ -5,6 +5,16 @@ const envSchema = z.object({
   ECOS_API_KEY: z.string().optional(),
   ALPHA_VANTAGE_KEY: z.string().optional(),
   PUBLIC_DATA_API_KEY: z.string().optional(),
+  KOSIS_API_KEY: z.string().optional(),
+  /**
+   * Per-indicator KOSIS table parameters. Format:
+   *   "orgId=360&tblId=DT_1R11001_FRM101&itmId=T01&objL1=ALL&prdSe=M&yoy=true"
+   * The fetcher parses these as query parameters appended to the KOSIS
+   * statisticsParameterData.do endpoint.
+   */
+  KOSIS_KR_EXPORT_PARAMS: z.string().optional(),
+  KOSIS_KR_EXPORT_SEMI_PARAMS: z.string().optional(),
+  KOSIS_KR_TB_PARAMS: z.string().optional(),
   DB_PATH: z.string().default('./data/timeseries.db'),
   TURSO_DATABASE_URL: z.string().optional(),
   TURSO_AUTH_TOKEN: z.string().optional(),
@@ -28,6 +38,10 @@ const parseResult = envSchema.safeParse({
   ECOS_API_KEY: process.env.ECOS_API_KEY,
   ALPHA_VANTAGE_KEY: process.env.ALPHA_VANTAGE_KEY,
   PUBLIC_DATA_API_KEY: process.env.PUBLIC_DATA_API_KEY,
+  KOSIS_API_KEY: process.env.KOSIS_API_KEY,
+  KOSIS_KR_EXPORT_PARAMS: process.env.KOSIS_KR_EXPORT_PARAMS,
+  KOSIS_KR_EXPORT_SEMI_PARAMS: process.env.KOSIS_KR_EXPORT_SEMI_PARAMS,
+  KOSIS_KR_TB_PARAMS: process.env.KOSIS_KR_TB_PARAMS,
   DB_PATH: process.env.DB_PATH,
   TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
   TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
