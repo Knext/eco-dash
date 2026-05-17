@@ -19,10 +19,19 @@ import type { FetchResult, SourceFetcher } from './types'
  */
 const KOSIS_BASE = 'https://kosis.kr/openapi/Param/statisticsParameterData.do'
 
-const PARAM_ENV: Record<string, string | undefined> = {
-  EXPORT_TOTAL_YOY: env.KOSIS_KR_EXPORT_PARAMS,
-  EXPORT_SEMICONDUCTOR_YOY: env.KOSIS_KR_EXPORT_SEMI_PARAMS,
-  TRADE_BALANCE: env.KOSIS_KR_TB_PARAMS,
+const PARAM_ENV: Record<string, { value: string | undefined; envName: string }> = {
+  EXPORT_TOTAL_YOY: {
+    value: env.KOSIS_KR_EXPORT_PARAMS,
+    envName: 'KOSIS_KR_EXPORT_PARAMS',
+  },
+  EXPORT_SEMICONDUCTOR_YOY: {
+    value: env.KOSIS_KR_EXPORT_SEMI_PARAMS,
+    envName: 'KOSIS_KR_EXPORT_SEMI_PARAMS',
+  },
+  TRADE_BALANCE: {
+    value: env.KOSIS_KR_TB_PARAMS,
+    envName: 'KOSIS_KR_TB_PARAMS',
+  },
 }
 
 interface KosisRow {
@@ -48,20 +57,20 @@ export const kosisFetcher: SourceFetcher = {
       }
     }
 
-    const paramsRaw = PARAM_ENV[sourceId]
-    if (!paramsRaw) {
+    const entry = PARAM_ENV[sourceId]
+    if (!entry?.value) {
       return {
         indicatorId,
         source: 'kosis',
         rows: [],
         success: false,
-        error: `KOSIS_${sourceId}_PARAMS env var not set — see docs/DEPLOY_VERCEL.md for KOSIS setup`,
+        error: `${entry?.envName ?? `KOSIS:${sourceId}`} env var not set — see docs/DEPLOY_VERCEL.md for KOSIS setup`,
         durationMs: Date.now() - start,
       }
     }
 
     try {
-      const overrides = new URLSearchParams(paramsRaw)
+      const overrides = new URLSearchParams(entry.value)
       const yoy = overrides.get('yoy') === 'true'
       const scale = parseFloat(overrides.get('scale') ?? '1') || 1
       const sign = parseFloat(overrides.get('sign') ?? '1') || 1
