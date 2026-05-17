@@ -38,7 +38,16 @@ export async function fetchIndicator(def: IndicatorDef, startDate?: string): Pro
   if (def.fallbackSource && def.fallbackSourceId) {
     const fb = FETCHERS[def.fallbackSource]
     if (fb) {
-      return await fb.fetch(def.id, def.fallbackSourceId, startDate)
+      const fbResult = await fb.fetch(def.id, def.fallbackSourceId, startDate)
+      // Surface both errors when neither source produced data so production
+      // logs reveal why the primary fetcher failed, not just the fallback.
+      if (!fbResult.success && result.error) {
+        return {
+          ...fbResult,
+          error: `primary(${primary.name}): ${result.error} | fallback(${fb.name}): ${fbResult.error ?? 'unknown'}`,
+        }
+      }
+      return fbResult
     }
   }
   return result
