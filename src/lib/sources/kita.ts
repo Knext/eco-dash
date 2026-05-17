@@ -145,23 +145,38 @@ async function fetchTopPartnerMonths(apiKey: string, hsSgn: string): Promise<Mon
     if (hsSgn) url.searchParams.set('hsSgn', hsSgn)
     url.searchParams.set('numOfRows', '500')
     url.searchParams.set('pageNo', '1')
+    // data.go.kr APIs vary on parameter name. Set both forms.
     url.searchParams.set('type', 'json')
+    url.searchParams.set('_type', 'json')
 
+    // Some Korean gov APIs return HTTP 406 when Accept is too strict.
+    // Sending Accept: */* matches their content negotiation expectations.
     const res = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'economy-dashboard/0.1', Accept: 'application/json' },
+      headers: { 'User-Agent': 'economy-dashboard/0.1', Accept: '*/*' },
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       throw new Error(`kita HTTP ${res.status} (cnty=${cnty}): ${body.slice(0, 200)}`)
     }
+
+    const text = await res.text()
     const ct = res.headers.get('content-type') ?? ''
     let data: NitemTradeResponse
-    if (ct.includes('json')) {
-      data = (await res.json()) as NitemTradeResponse
+    if (ct.includes('json') || text.trimStart().startsWith('{')) {
+      try {
+        data = JSON.parse(text) as NitemTradeResponse
+      } catch (e) {
+        throw new Error(`kita JSON parse error (cnty=${cnty}): ${text.slice(0, 200)}`)
+      }
     } else {
-      // some data.go.kr endpoints still return XML when "type=json" is ignored
-      const text = await res.text()
-      throw new Error(`kita unexpected content-type ${ct}: ${text.slice(0, 200)}`)
+      throw new Error(`kita non-JSON response (cnty=${cnty}, ct=${ct}): ${text.slice(0, 200)}`)
+    }
+
+    // data.go.kr sometimes returns OpenAPI_ServiceResponse with a reasonCode
+    // even when HTTP 200. Surface that explicitly.
+    const headerCode = data.response?.header?.resultCode
+    if (headerCode && headerCode !== '00') {
+      throw new Error(`kita result ${headerCode} (cnty=${cnty}): ${data.response?.header?.resultMsg ?? ''}`)
     }
 
     const itemRaw = data.response?.body?.items?.item
