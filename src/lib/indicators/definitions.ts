@@ -184,7 +184,6 @@ export const INDICATORS: readonly IndicatorDef[] = [
     updateCadence: 'daily',
     description: '학술적 침체 예측력 1위',
     inverted: true,
-    mainView: true,
   },
   {
     id: 'T10Y3M',
@@ -232,7 +231,6 @@ export const INDICATORS: readonly IndicatorDef[] = [
     thresholds: { normal: [0, 100], watch: [100, 105], alert: [105, 999], direction: 'above' },
     updateCadence: 'daily',
     description: 'ICE 달러 인덱스 (시장 표준). FRED 광의 무역가중은 폴백.',
-    mainView: true,
   },
   {
     id: 'DCOILWTICO',
@@ -281,7 +279,6 @@ export const INDICATORS: readonly IndicatorDef[] = [
     releaseTimeET: '20:00',
     description: '한국 수출 전년동월대비, KOSPI EPS와 r≈0.7. 산자부 발표 후 manual entry 권장.',
     inverted: true,
-    mainView: true,
   },
   {
     id: 'KR_EXPORT_SEMI',
@@ -329,7 +326,6 @@ export const INDICATORS: readonly IndicatorDef[] = [
     thresholds: { normal: [1100, 1300], watch: [1300, 1400], alert: [1400, 9999], direction: 'above' },
     updateCadence: 'daily',
     description: '한국 투자자 환 익스포저 (ECOS 731Y001 / ITEM 0000001 미국달러)',
-    mainView: true,
   },
   {
     id: 'KOSPI',
