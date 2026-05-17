@@ -3,6 +3,17 @@ import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
 const ECOS_BASE = 'https://ecos.bok.or.kr/api/StatisticSearch'
+const PAGE_SIZE = 1000
+
+interface EcosRow {
+  TIME: string
+  DATA_VALUE: string
+}
+
+interface EcosResponse {
+  StatisticSearch?: { list_total_count?: number; row?: EcosRow[] }
+  RESULT?: { CODE: string; MESSAGE: string }
+}
 
 export const ecosFetcher: SourceFetcher = {
   name: 'ecos',
@@ -36,38 +47,56 @@ export const ecosFetcher: SourceFetcher = {
 
     const today = new Date()
     const end = today.toISOString().slice(0, 10).replace(/-/g, '')
-    // ECOS returns at most 1000 rows per request. Daily cycle → roughly 3 years.
     const startStr = startDate
       ? startDate.replace(/-/g, '')
-      : new Date(today.getTime() - 3 * 365 * 24 * 60 * 60 * 1000)
+      : new Date(today.getTime() - 5 * 365 * 24 * 60 * 60 * 1000)
           .toISOString()
           .slice(0, 10)
           .replace(/-/g, '')
 
-    const url = itemCode
-      ? `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/1/1000/${statCode}/D/${startStr}/${end}/${itemCode}`
-      : `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/1/1000/${statCode}/D/${startStr}/${end}`
-
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': 'economy-dashboard/0.1' } })
-      if (!res.ok) throw new Error(`ECOS HTTP ${res.status}`)
-      const json = (await res.json()) as {
-        StatisticSearch?: { row?: Array<{ TIME: string; DATA_VALUE: string }> }
-        RESULT?: { CODE: string; MESSAGE: string }
-      }
-      if (json.RESULT && json.RESULT.CODE !== 'INFO-000') {
-        throw new Error(`ECOS ${json.RESULT.CODE}: ${json.RESULT.MESSAGE}`)
-      }
-      const rawRows = json.StatisticSearch?.row ?? []
-      const rows = rawRows
-        .map((r) => {
+      const collected: Array<{ asOf: string; value: number }> = []
+
+      // ECOS caps a single request at 1,000 rows. Iterate pages until we
+      // either receive a short page (last page) or hit a safety bound.
+      // 5 years of daily data ≈ 1,300 trading rows, so 5 pages is plenty.
+      const MAX_PAGES = 10
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const startIdx = (page - 1) * PAGE_SIZE + 1
+        const endIdx = page * PAGE_SIZE
+        const path = itemCode
+          ? `${statCode}/D/${startStr}/${end}/${itemCode}`
+          : `${statCode}/D/${startStr}/${end}`
+        const url = `${ECOS_BASE}/${env.ECOS_API_KEY}/json/kr/${startIdx}/${endIdx}/${path}`
+
+        const res = await fetch(url, { headers: { 'User-Agent': 'economy-dashboard/0.1' } })
+        if (!res.ok) throw new Error(`ECOS HTTP ${res.status} (page=${page})`)
+        const json = (await res.json()) as EcosResponse
+        if (json.RESULT && json.RESULT.CODE !== 'INFO-000') {
+          // INFO-200 = "no result". For pagination this just means we're past the end.
+          if (json.RESULT.CODE === 'INFO-200') break
+          throw new Error(`ECOS ${json.RESULT.CODE}: ${json.RESULT.MESSAGE}`)
+        }
+        const rawRows = json.StatisticSearch?.row ?? []
+        if (rawRows.length === 0) break
+
+        for (const r of rawRows) {
           const asOf = parseEcosDate(r.TIME)
           const v = safeFinite(r.DATA_VALUE)
-          if (!asOf || v === null) return null
-          return { asOf, value: v }
-        })
-        .filter((r): r is { asOf: string; value: number } => r !== null)
-      return { indicatorId, source: 'ecos', rows, success: true, durationMs: Date.now() - start }
+          if (!asOf || v === null) continue
+          collected.push({ asOf, value: v })
+        }
+
+        if (rawRows.length < PAGE_SIZE) break // last page reached
+      }
+
+      return {
+        indicatorId,
+        source: 'ecos',
+        rows: collected,
+        success: true,
+        durationMs: Date.now() - start,
+      }
     } catch (e: unknown) {
       const raw = e instanceof Error ? e.message : String(e)
       return {
