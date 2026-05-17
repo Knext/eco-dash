@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const result = await Promise.all(
-    INDICATORS.map(async (def) => {
+    INDICATORS.filter((def) => !def.hidden).map(async (def) => {
       // YoY transforms need >=13 months of history; pull a wider window so the
       // ±15-day match can find a prior point. Sparkline only displays the tail.
       const window = def.transform === 'yoy' ? 800 : 400

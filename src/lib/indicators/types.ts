@@ -40,6 +40,8 @@ export interface IndicatorDef {
   readonly transform?: 'yoy' | 'mom' | 'pct_below_200dma' | 'spread_calc'
   readonly description?: string
   readonly mainView?: boolean
+  /** When true, the indicator is fetched for signal evaluation but not rendered. */
+  readonly hidden?: boolean
 }
 
 export type IndicatorStatus = 'normal' | 'watch' | 'alert' | 'stale'

@@ -37,11 +37,12 @@ export function Header() {
   const activeCount = alerts?.signals.length ?? 0
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-3 py-2 sm:px-6">
-        <div className="flex items-center gap-3">
-          <a href="/" className="text-base font-bold text-gray-900 dark:text-gray-100">
-            📊 EconDash
+    <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/95 backdrop-blur dark:border-charcoal dark:bg-charcoal/95">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-4">
+          <a href="/" className="flex items-center gap-2 text-ink hover:opacity-90 dark:text-canvas">
+            <span className="text-heading-lg font-bold text-brand">●</span>
+            <span className="text-body-strong tracking-tight">EconDash</span>
           </a>
           {regime && (
             <RegimeBadge
@@ -52,15 +53,15 @@ export function Header() {
             />
           )}
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-          <span className="hidden sm:inline tabular">{formatKstEt(new Date())}</span>
+        <div className="flex items-center gap-3 text-caption-md text-mute">
+          <span className="hidden tabular sm:inline">{formatKstEt(new Date())}</span>
           <a
             href="/alerts"
-            className="relative flex items-center gap-1 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="relative inline-flex items-center gap-1.5 rounded-full bg-surface-card px-3 py-1.5 text-caption-md font-semibold text-ink hover:bg-surface-card-deep dark:bg-charcoal dark:text-canvas"
             aria-label="알림 보기"
           >
             <Bell size={14} />
-            <span>{activeCount}</span>
+            <span className="tabular">{activeCount}</span>
           </a>
         </div>
       </div>

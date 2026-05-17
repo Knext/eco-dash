@@ -120,6 +120,7 @@ export const INDICATORS: readonly IndicatorDef[] = [
     precision: 2,
     thresholds: { normal: [0, 100], watch: [0, 100], alert: [0, 100], direction: 'above' },
     updateCadence: 'daily',
+    hidden: true,
   },
   {
     id: 'DGS2',
@@ -132,6 +133,7 @@ export const INDICATORS: readonly IndicatorDef[] = [
     precision: 2,
     thresholds: { normal: [0, 100], watch: [0, 100], alert: [0, 100], direction: 'above' },
     updateCadence: 'daily',
+    hidden: true,
   },
   {
     id: 'DGS3',
@@ -198,6 +200,7 @@ export const INDICATORS: readonly IndicatorDef[] = [
     updateCadence: 'daily',
     description: 'NY Fed 침체확률 모델 핵심 입력',
     inverted: true,
+    hidden: true,
   },
 
   // 신용

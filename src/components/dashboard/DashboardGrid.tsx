@@ -165,19 +165,22 @@ export function DashboardGrid() {
   return (
     <>
       <AlertBanner signals={signals} onDismiss={dismiss} />
-      <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <section>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                메인 지표 ({main.order.length}/{defaultMainIds.length})
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-body-strong text-ink dark:text-canvas">
+                메인 지표
+                <span className="ml-2 text-caption-md text-mute tabular">
+                  ({main.order.length}/{defaultMainIds.length})
+                </span>
               </h2>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {isEditing && (
                   <button
                     type="button"
                     onClick={() => main.reset()}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1 text-xs hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="inline-flex items-center gap-1 rounded-full bg-surface-card px-3 py-1.5 text-caption-md font-semibold text-ink hover:bg-surface-card-deep"
                     title="기본 순서로 되돌리기"
                   >
                     <RotateCcw size={12} />
@@ -188,10 +191,10 @@ export function DashboardGrid() {
                   type="button"
                   onClick={() => setIsEditing((p) => !p)}
                   className={cn(
-                    'flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors',
+                    'inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-caption-md font-semibold transition-colors',
                     isEditing
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
-                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800',
+                      ? 'bg-ink text-canvas'
+                      : 'bg-surface-card text-ink hover:bg-surface-card-deep',
                   )}
                   aria-pressed={isEditing}
                 >
@@ -221,14 +224,12 @@ export function DashboardGrid() {
               </SortableContext>
             </DndContext>
 
-            <div className="mt-8">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                보조 지표
-              </h2>
+            <div className="mt-section">
+              <h2 className="mb-3 text-body-strong text-ink dark:text-canvas">보조 지표</h2>
               <div
                 role="tablist"
                 aria-label="보조 지표 카테고리"
-                className="-mx-1 mb-3 flex flex-wrap gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800 px-1"
+                className="mb-4 flex flex-wrap gap-2 overflow-x-auto"
               >
                 {visibleTabs.map((t) => {
                   const count = auxByTab.get(t.id)?.length ?? 0
@@ -241,19 +242,19 @@ export function DashboardGrid() {
                       aria-selected={active}
                       onClick={() => selectTab(t.id)}
                       className={cn(
-                        'whitespace-nowrap rounded-t-md border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+                        'whitespace-nowrap rounded-full px-4 py-1.5 text-caption-md font-semibold transition-colors',
                         active
-                          ? 'border-blue-500 text-blue-700 dark:text-blue-300'
-                          : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                          ? 'bg-ink text-canvas dark:bg-canvas dark:text-ink'
+                          : 'bg-surface-card text-ink hover:bg-surface-card-deep dark:bg-charcoal dark:text-canvas',
                       )}
                     >
                       {t.label}
                       <span
                         className={cn(
-                          'ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular',
+                          'ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular',
                           active
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
-                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+                            ? 'bg-canvas/20 text-canvas dark:bg-ink/30 dark:text-ink'
+                            : 'bg-canvas text-mute dark:bg-charcoal/60 dark:text-stone',
                         )}
                       >
                         {count}
@@ -264,7 +265,9 @@ export function DashboardGrid() {
               </div>
 
               {currentTabIndicators.length === 0 && !indLoading && (
-                <p className="text-xs text-gray-400 italic py-4">이 탭에는 표시할 지표가 없습니다.</p>
+                <p className="py-4 text-caption-md italic text-ash">
+                  이 탭에는 표시할 지표가 없습니다.
+                </p>
               )}
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -281,7 +284,7 @@ export function DashboardGrid() {
           </aside>
         </div>
 
-        <footer className="mt-8 text-center text-xs text-gray-400">
+        <footer className="mt-section text-center text-caption-sm text-ash">
           {indicatorsResp?.ts && (
             <>마지막 갱신: {new Date(indicatorsResp.ts).toLocaleString('ko-KR')}</>
           )}
@@ -309,7 +312,7 @@ function SkeletonGrid({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="h-32 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+        <div key={i} className="h-32 animate-pulse rounded-md bg-surface-card dark:bg-charcoal" />
       ))}
     </div>
   )

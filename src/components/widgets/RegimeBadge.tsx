@@ -47,17 +47,24 @@ export function RegimeBadge({ regime, enteredAt, previous, triggerSummary }: Pro
   const days = daysSince(enteredAt)
   return (
     <div className="flex items-center gap-3">
-      <div className={cn('rounded-full px-3 py-1 text-sm font-semibold', cfg.bg, cfg.text)}>
-        {cfg.label} <span className="text-xs opacity-70">D+{days}</span>
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-caption-md font-semibold',
+          cfg.bg,
+          cfg.text,
+        )}
+      >
+        {cfg.label}
+        <span className="text-[10px] tabular opacity-70">D+{days}</span>
       </div>
-      <div className="hidden sm:flex flex-col text-xs text-gray-500 dark:text-gray-400">
+      <div className="hidden flex-col text-caption-sm text-mute sm:flex">
         <span>{cfg.description}</span>
         {previous && previous !== regime && (
           <span className="opacity-70">직전: {REGIME_CONFIG[previous].label}</span>
         )}
       </div>
       {triggerSummary && (
-        <div className="hidden md:block text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
+        <div className="hidden max-w-xs truncate text-caption-sm text-mute md:block">
           {triggerSummary}
         </div>
       )}

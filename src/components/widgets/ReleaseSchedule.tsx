@@ -24,25 +24,28 @@ export function ReleaseSchedule() {
   })
   const releases = data?.releases ?? []
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+    <div className="rounded-md bg-canvas p-4 dark:bg-charcoal/60">
+      <div className="mb-3 flex items-center gap-2 text-body-strong text-ink dark:text-canvas">
         <Calendar size={14} />
         <span>발표 일정 (14일)</span>
       </div>
       {releases.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">예정 이벤트 없음</p>
+        <p className="text-caption-md italic text-ash">예정 이벤트 없음</p>
       ) : (
-        <ul className="space-y-2 text-xs">
+        <ul className="space-y-2 text-caption-md">
           {releases.map((r) => {
             const d = differenceInDays(new Date(r.due_at_kst), new Date())
             return (
-              <li key={r.id} className="border-l-2 border-blue-400 pl-2">
+              <li key={r.id} className="border-l-2 border-brand pl-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium truncate">{r.event_name}</span>
-                  <span className="shrink-0 text-blue-500 font-medium">D-{d}</span>
+                  <span className="truncate font-semibold text-ink dark:text-canvas">
+                    {r.event_name}
+                  </span>
+                  <span className="shrink-0 font-bold text-brand tabular">D-{d}</span>
                 </div>
-                <div className="mt-0.5 text-gray-500">
-                  {formatKst(r.due_at_et, 'HH:mm')} ET / {formatKst(r.due_at_kst, 'MM-dd HH:mm')} KST
+                <div className="mt-0.5 text-caption-sm text-mute">
+                  {formatKst(r.due_at_et, 'HH:mm')} ET / {formatKst(r.due_at_kst, 'MM-dd HH:mm')}{' '}
+                  KST
                 </div>
               </li>
             )
