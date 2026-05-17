@@ -3,6 +3,7 @@ import { INDICATORS } from '@/lib/indicators/definitions'
 import { fetchAndStore } from '@/lib/sources'
 import { checkBearer } from '@/lib/auth'
 import { getDb, ensureSchema } from '@/lib/db/client'
+import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -98,6 +99,12 @@ async function runFetch() {
     dbRowCount,
     sample,
     vixCount,
+    envDebug: {
+      tursoUrlPresent: !!env.TURSO_DATABASE_URL,
+      tursoUrlPrefix: env.TURSO_DATABASE_URL?.slice(0, 40) ?? null,
+      tursoTokenLength: env.TURSO_AUTH_TOKEN?.length ?? 0,
+      dbPath: env.DB_PATH,
+    },
     ts: new Date().toISOString(),
     total: results.length,
     success: results.filter((r) => r.success).length,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb, ensureSchema } from '@/lib/db/client'
 import { getRecentValues, getLatestValue } from '@/lib/db/queries'
 import { checkBearer } from '@/lib/auth'
+import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,5 +51,11 @@ export async function GET(req: Request) {
     helperFirstRow,
     latest,
     perIndicator,
+    envDebug: {
+      tursoUrlPresent: !!env.TURSO_DATABASE_URL,
+      tursoUrlPrefix: env.TURSO_DATABASE_URL?.slice(0, 40) ?? null,
+      tursoTokenLength: env.TURSO_AUTH_TOKEN?.length ?? 0,
+      dbPath: env.DB_PATH,
+    },
   })
 }
