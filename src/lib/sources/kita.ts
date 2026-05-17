@@ -3,16 +3,44 @@ import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
 /**
- * Korea Customs Service (관세청) 무역통계 via data.go.kr (공공데이터포털).
- * Requires PUBLIC_DATA_API_KEY (free, application via data.go.kr).
+ * Korea Customs Service via data.go.kr 공공데이터포털.
  *
- * The 관세청 service exposes monthly export/import statistics. Without
- * an API key (the common case), this fetcher fails fast so the
- * manual fallback can take over.
+ * The `nitemtrade` endpoint exposes monthly item × country export/import
+ * amounts. cntyCd is mandatory so there is no single-call "world total" —
+ * we sum the top 5 trading partners (≈70% of Korean export value) and
+ * derive YoY by comparing to the same calendar month one year ago.
  *
- * Endpoint: https://apis.data.go.kr/1220000/Itstatistic03Service
- * (subject to change — verify with data.go.kr if it stops working)
+ * sourceId encodes what we want:
+ *   "EXPORT_TOTAL_YOY"          – aggregate export YoY (HS empty → all goods)
+ *   "EXPORT_SEMICONDUCTOR_YOY"  – semiconductor export YoY (HS 854)
+ *   "TRADE_BALANCE"             – aggregate trade balance, billion USD
  */
+const ENDPOINT = 'https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList'
+
+// CN, US, JP, VN, HK — five biggest export destinations for Korea
+const TOP_PARTNERS = ['CN', 'US', 'JP', 'VN', 'HK'] as const
+
+interface NitemTradeRow {
+  expDlr?: string | number
+  impDlr?: string | number
+  balPayments?: string | number
+  year?: string
+  statCd?: string
+  statCdCntnKor1?: string
+}
+
+interface NitemTradeResponse {
+  response?: {
+    body?: {
+      items?: { item?: NitemTradeRow | NitemTradeRow[] }
+      totalCount?: number
+    }
+    header?: { resultCode?: string; resultMsg?: string }
+  }
+}
+
+type Metric = 'expDlr' | 'impDlr' | 'balPayments'
+
 export const kitaFetcher: SourceFetcher = {
   name: 'kita',
   async fetch(indicatorId, sourceId): Promise<FetchResult> {
@@ -29,14 +57,16 @@ export const kitaFetcher: SourceFetcher = {
     }
 
     try {
-      const rows = await fetchKitaSeries(sourceId)
+      const { hsSgn, kind } = parseSourceId(sourceId)
+      const monthlyTotals = await fetchTopPartnerMonths(env.PUBLIC_DATA_API_KEY, hsSgn)
+      const rows = projectMetric(monthlyTotals, kind)
       if (rows.length === 0) {
         return {
           indicatorId,
           source: 'kita',
           rows: [],
           success: false,
-          error: 'kita returned 0 rows — falling back to manual_overrides',
+          error: 'no rows from nitemtrade — falling back to manual_overrides',
           durationMs: Date.now() - start,
         }
       }
@@ -55,53 +85,142 @@ export const kitaFetcher: SourceFetcher = {
   },
 }
 
-interface KitaItem {
-  statKor?: string
-  expDlr?: string
-  impDlr?: string
-  balPayments?: string
-  year?: string
-  month?: string
-}
-
-async function fetchKitaSeries(sourceId: string): Promise<Array<{ asOf: string; value: number }>> {
-  // 관세청 OpenAPI는 sourceId마다 엔드포인트가 다름.
-  // EXPORT_TOTAL_YOY, EXPORT_SEMICONDUCTOR_YOY, TRADE_BALANCE를 매핑.
-  // 실제 API 응답이 다양할 수 있으므로 베스트 노력.
-  const path = sourceId === 'TRADE_BALANCE' ? 'getCtyNCntyList' : 'getExpStaticsList'
-  const url = new URL(`https://apis.data.go.kr/1220000/Itstatistic03Service/${path}`)
-  url.searchParams.set('serviceKey', env.PUBLIC_DATA_API_KEY ?? '')
-  url.searchParams.set('resultType', 'json')
-  url.searchParams.set('numOfRows', '60')
-  url.searchParams.set('pageNo', '1')
-
-  const res = await fetch(url.toString(), { headers: { 'User-Agent': 'economy-dashboard/0.1' } })
-  if (!res.ok) throw new Error(`kita HTTP ${res.status}`)
-
-  const ct = res.headers.get('content-type') ?? ''
-  if (!ct.includes('json')) throw new Error(`kita unexpected content-type: ${ct}`)
-
-  const data = (await res.json()) as {
-    response?: { body?: { items?: { item?: KitaItem[] | KitaItem } } }
+function parseSourceId(sourceId: string): { hsSgn: string; kind: 'yoy' | 'balance' } {
+  switch (sourceId) {
+    case 'EXPORT_TOTAL_YOY':
+      return { hsSgn: '', kind: 'yoy' }
+    case 'EXPORT_SEMICONDUCTOR_YOY':
+      return { hsSgn: '854', kind: 'yoy' }
+    case 'TRADE_BALANCE':
+      return { hsSgn: '', kind: 'balance' }
+    default:
+      throw new Error(`unknown KITA sourceId: ${sourceId}`)
   }
-  const itemRaw = data.response?.body?.items?.item
-  const items: KitaItem[] = Array.isArray(itemRaw) ? itemRaw : itemRaw ? [itemRaw] : []
-
-  return items
-    .map((it) => {
-      const y = it.year
-      const m = it.month
-      if (!y || !m) return null
-      const asOf = `${y}-${m.padStart(2, '0')}-01`
-      const rawValue =
-        sourceId === 'TRADE_BALANCE'
-          ? it.balPayments
-          : sourceId === 'EXPORT_SEMICONDUCTOR_YOY'
-            ? it.expDlr
-            : it.expDlr
-      if (!rawValue) return null
-      const v = safeFinite(rawValue)
-      return v === null ? null : { asOf, value: v }
-    })
-    .filter((r): r is { asOf: string; value: number } => r !== null)
 }
+
+/**
+ * Build YYYYMM strings for the last 26 months so YoY can compare each of
+ * the most recent 14 months against the same month a year ago.
+ */
+function recentMonths(count: number): string[] {
+  const out: string[] = []
+  const now = new Date()
+  let y = now.getFullYear()
+  let m = now.getMonth() + 1
+  for (let i = 0; i < count; i++) {
+    out.push(`${y}${String(m).padStart(2, '0')}`)
+    m--
+    if (m === 0) {
+      m = 12
+      y--
+    }
+  }
+  return out.reverse()
+}
+
+interface MonthlyTotals {
+  /** key = YYYYMM, value = sum across top partners */
+  exports: Map<string, number>
+  imports: Map<string, number>
+  balance: Map<string, number>
+}
+
+async function fetchTopPartnerMonths(apiKey: string, hsSgn: string): Promise<MonthlyTotals> {
+  const months = recentMonths(26)
+  const strt = months[0]!
+  const end = months[months.length - 1]!
+
+  const totals: MonthlyTotals = {
+    exports: new Map(),
+    imports: new Map(),
+    balance: new Map(),
+  }
+
+  for (const cnty of TOP_PARTNERS) {
+    const url = new URL(ENDPOINT)
+    url.searchParams.set('serviceKey', apiKey)
+    url.searchParams.set('strtYymm', strt)
+    url.searchParams.set('endYymm', end)
+    url.searchParams.set('cntyCd', cnty)
+    if (hsSgn) url.searchParams.set('hsSgn', hsSgn)
+    url.searchParams.set('numOfRows', '500')
+    url.searchParams.set('pageNo', '1')
+    url.searchParams.set('type', 'json')
+
+    const res = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'economy-dashboard/0.1', Accept: 'application/json' },
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`kita HTTP ${res.status} (cnty=${cnty}): ${body.slice(0, 200)}`)
+    }
+    const ct = res.headers.get('content-type') ?? ''
+    let data: NitemTradeResponse
+    if (ct.includes('json')) {
+      data = (await res.json()) as NitemTradeResponse
+    } else {
+      // some data.go.kr endpoints still return XML when "type=json" is ignored
+      const text = await res.text()
+      throw new Error(`kita unexpected content-type ${ct}: ${text.slice(0, 200)}`)
+    }
+
+    const itemRaw = data.response?.body?.items?.item
+    const items: NitemTradeRow[] = Array.isArray(itemRaw) ? itemRaw : itemRaw ? [itemRaw] : []
+    for (const it of items) {
+      const ym = (it.year ?? '').toString().slice(0, 6)
+      if (!/^\d{6}$/.test(ym)) continue
+      const exp = numberOf(it.expDlr)
+      const imp = numberOf(it.impDlr)
+      const bal = numberOf(it.balPayments)
+      if (exp !== null) totals.exports.set(ym, (totals.exports.get(ym) ?? 0) + exp)
+      if (imp !== null) totals.imports.set(ym, (totals.imports.get(ym) ?? 0) + imp)
+      if (bal !== null) totals.balance.set(ym, (totals.balance.get(ym) ?? 0) + bal)
+    }
+  }
+
+  return totals
+}
+
+function numberOf(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  const s = typeof v === 'number' ? v.toString() : String(v)
+  return safeFinite(s.replace(/,/g, ''))
+}
+
+function projectMetric(
+  totals: MonthlyTotals,
+  kind: 'yoy' | 'balance',
+): Array<{ asOf: string; value: number }> {
+  if (kind === 'balance') {
+    const out: Array<{ asOf: string; value: number }> = []
+    for (const [ym, bal] of totals.balance) {
+      out.push({ asOf: ymToIso(ym), value: bal / 1_000_000_000 }) // → billion USD
+    }
+    return out.sort((a, b) => a.asOf.localeCompare(b.asOf))
+  }
+  // yoy on exports
+  const sorted = [...totals.exports.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  const map = new Map(sorted)
+  const out: Array<{ asOf: string; value: number }> = []
+  for (const [ym, cur] of sorted) {
+    const prevYm = priorYear(ym)
+    const prev = map.get(prevYm)
+    if (prev === undefined || prev === 0) continue
+    const pct = ((cur - prev) / Math.abs(prev)) * 100
+    out.push({ asOf: ymToIso(ym), value: pct })
+  }
+  return out
+}
+
+function priorYear(ym: string): string {
+  const y = parseInt(ym.slice(0, 4), 10) - 1
+  const m = ym.slice(4, 6)
+  return `${y}${m}`
+}
+
+function ymToIso(ym: string): string {
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`
+}
+
+/** Five biggest export destinations sampled by KITA fetcher (CN, US, JP, VN, HK). */
+export const KITA_TOP_PARTNERS = TOP_PARTNERS
