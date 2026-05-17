@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { INDICATORS } from '@/lib/indicators/definitions'
 import { fetchAndStore } from '@/lib/sources'
 import { checkBearer } from '@/lib/auth'
+import { getDb, ensureSchema } from '@/lib/db/client'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -60,7 +61,17 @@ async function runFetch() {
   }
 
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
+
+  // Diagnostic: verify rows actually landed in Turso.
+  await ensureSchema()
+  const db = getDb()
+  const countRes = await db.execute(`SELECT COUNT(*) AS c FROM timeseries`)
+  const dbRowCount = Number(
+    (countRes.rows[0] as unknown as { c: number | bigint } | undefined)?.c ?? 0,
+  )
+
   return NextResponse.json({
+    dbRowCount,
     ts: new Date().toISOString(),
     total: results.length,
     success: results.filter((r) => r.success).length,

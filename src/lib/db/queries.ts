@@ -61,15 +61,16 @@ function rowToSignal(r: Row): SignalRow {
 }
 
 /**
- * Multi-row INSERT in chunks. Each chunk is a single SQL round-trip, which
- * matters for Turso (remote DB) — row-by-row inserts of a 5-year daily
- * series (1255 rows) would take ~90s of network latency alone, exceeding
- * Vercel Hobby's 60s function timeout.
+ * Bulk insert using libsql's batch() — sends N statements in a single HTTP
+ * round-trip to Turso. Previously we tried multi-row INSERT ... VALUES (...),
+ * (...) which is valid SQLite but appeared to silently succeed without
+ * persisting rows on Turso (rowsAffected reported correctly only on per-row
+ * statements). batch() is the documented Turso path for bulk writes.
  *
- * SQLite caps a single statement at 999 host parameters, so each chunk uses
- * 4 columns × 200 rows = 800 placeholders (safe headroom).
+ * We chunk because a 5-year daily series is 1,255 rows and Turso's batch
+ * size limit is 1,000 statements per HTTP request.
  */
-const INSERT_CHUNK_ROWS = 200
+const INSERT_BATCH = 500
 
 export async function insertTimeseries(
   rows: Omit<TimeSeriesRow, 'fetched_at'>[],
@@ -77,21 +78,22 @@ export async function insertTimeseries(
   if (rows.length === 0) return 0
   await ensureSchema()
   const db = getDb()
+  const sql = `INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
+               VALUES (?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(indicator_id, as_of, source) DO UPDATE SET
+                 value = excluded.value,
+                 fetched_at = excluded.fetched_at`
   let total = 0
-  for (let i = 0; i < rows.length; i += INSERT_CHUNK_ROWS) {
-    const slice = rows.slice(i, i + INSERT_CHUNK_ROWS)
-    const placeholders = slice.map(() => "(?, ?, ?, ?, datetime('now'))").join(', ')
-    const sql = `INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
-                 VALUES ${placeholders}
-                 ON CONFLICT(indicator_id, as_of, source) DO UPDATE SET
-                   value = excluded.value,
-                   fetched_at = excluded.fetched_at`
-    const args: Array<string | number> = []
-    for (const r of slice) {
-      args.push(r.indicator_id, r.as_of, r.value, r.source)
+  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+    const slice = rows.slice(i, i + INSERT_BATCH)
+    const stmts = slice.map((r) => ({
+      sql,
+      args: [r.indicator_id, r.as_of, r.value, r.source] as [string, string, number, string],
+    }))
+    const results = await db.batch(stmts, 'write')
+    for (const r of results) {
+      total += Number(r.rowsAffected ?? 0)
     }
-    await db.execute({ sql, args })
-    total += slice.length
   }
   return total
 }
