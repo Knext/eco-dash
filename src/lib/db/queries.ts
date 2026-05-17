@@ -60,30 +60,40 @@ function rowToSignal(r: Row): SignalRow {
   }
 }
 
+/**
+ * Multi-row INSERT in chunks. Each chunk is a single SQL round-trip, which
+ * matters for Turso (remote DB) — row-by-row inserts of a 5-year daily
+ * series (1255 rows) would take ~90s of network latency alone, exceeding
+ * Vercel Hobby's 60s function timeout.
+ *
+ * SQLite caps a single statement at 999 host parameters, so each chunk uses
+ * 4 columns × 200 rows = 800 placeholders (safe headroom).
+ */
+const INSERT_CHUNK_ROWS = 200
+
 export async function insertTimeseries(
   rows: Omit<TimeSeriesRow, 'fetched_at'>[],
 ): Promise<number> {
   if (rows.length === 0) return 0
   await ensureSchema()
   const db = getDb()
-  const sql = `INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(indicator_id, as_of, source) DO UPDATE SET
-      value = excluded.value,
-      fetched_at = excluded.fetched_at`
-  const tx = await db.transaction('write')
-  try {
-    let n = 0
-    for (const r of rows) {
-      await tx.execute({ sql, args: [r.indicator_id, r.as_of, r.value, r.source] })
-      n++
+  let total = 0
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK_ROWS) {
+    const slice = rows.slice(i, i + INSERT_CHUNK_ROWS)
+    const placeholders = slice.map(() => "(?, ?, ?, ?, datetime('now'))").join(', ')
+    const sql = `INSERT INTO timeseries (indicator_id, as_of, value, source, fetched_at)
+                 VALUES ${placeholders}
+                 ON CONFLICT(indicator_id, as_of, source) DO UPDATE SET
+                   value = excluded.value,
+                   fetched_at = excluded.fetched_at`
+    const args: Array<string | number> = []
+    for (const r of slice) {
+      args.push(r.indicator_id, r.as_of, r.value, r.source)
     }
-    await tx.commit()
-    return n
-  } catch (e) {
-    await tx.rollback()
-    throw e
+    await db.execute({ sql, args })
+    total += slice.length
   }
+  return total
 }
 
 export async function getLatestValue(indicatorId: string): Promise<TimeSeriesRow | undefined> {
