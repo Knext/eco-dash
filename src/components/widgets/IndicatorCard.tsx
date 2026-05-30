@@ -69,6 +69,11 @@ export function IndicatorCard({
   const unitLabel =
     unit === 'pct' ? '%' : unit === 'bp' ? 'bp' : unit === 'krw' ? '원' : unit === 'usd' ? '$' : ''
 
+  // Chart line color follows the visible-window trend (first vs last
+  // history point), not the alert status — Korean stock convention:
+  // 상승=빨강, 하락=파랑, 동일=회색.
+  const trendColor = trendLineColor(history)
+
   return (
     <a
       href={`/indicator/${id}`}
@@ -108,8 +113,22 @@ export function IndicatorCard({
       </div>
 
       <div className="mt-3">
-        <Sparkline points={history} color={cfg.color} height={36} />
+        <Sparkline points={history} color={trendColor} height={36} />
       </div>
     </a>
   )
+}
+
+const TREND_UP = '#ef4444'
+const TREND_DOWN = '#3b82f6'
+const TREND_FLAT = '#9ca3af'
+
+function trendLineColor(points: Point[]): string {
+  if (points.length < 2) return TREND_FLAT
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (!first || !last) return TREND_FLAT
+  if (last.value > first.value) return TREND_UP
+  if (last.value < first.value) return TREND_DOWN
+  return TREND_FLAT
 }
