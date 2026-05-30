@@ -115,30 +115,33 @@ export async function getRecentValues(
 ): Promise<TimeSeriesRow[]> {
   await ensureSchema()
   const db = getDb()
-  // Deduplicate per (indicator_id, as_of) so a single date never produces
-  // two points. The PK is (indicator_id, as_of, source), so when an
-  // indicator's source has been swapped (e.g. DXY FRED → yfinance) both
-  // series' rows coexist on overlapping dates — mixing them in one
-  // sparkline produces a sawtooth between two index scales. For each date
-  // we keep the most-recently-fetched row, which matches the displayed
-  // latest value's source on the freshest day and degrades gracefully to
-  // the older source on dates where the new one has no data yet.
+  // The PK is (indicator_id, as_of, source). When an indicator's primary
+  // source has been swapped (e.g. DXY FRED → yfinance), the legacy series'
+  // rows linger forever and have a different numeric scale. We MUST NOT
+  // mix scales in one sparkline, so we lock the displayed history to a
+  // single source: whichever produced the most recent row. Done as two
+  // statements rather than a correlated subquery — the latter previously
+  // returned 0 rows for some indicators under libsql, root cause never
+  // isolated, and getRecentValues is hot enough that "two small queries"
+  // is acceptable.
+  const latest = await db.execute({
+    sql: `SELECT source FROM timeseries
+          WHERE indicator_id = ?
+          ORDER BY as_of DESC, fetched_at DESC
+          LIMIT 1`,
+    args: [indicatorId],
+  })
+  const latestRow = latest.rows[0] as Row | undefined
+  if (!latestRow) return []
+  const source = asString(latestRow.source)
+  if (!source) return []
   const res = await db.execute({
-    sql: `WITH ranked AS (
-            SELECT indicator_id, as_of, value, source, fetched_at,
-                   ROW_NUMBER() OVER (
-                     PARTITION BY indicator_id, as_of
-                     ORDER BY fetched_at DESC, source DESC
-                   ) AS rn
-            FROM timeseries
-            WHERE indicator_id = ?
-              AND as_of >= date('now', '-' || ? || ' days')
-          )
-          SELECT indicator_id, as_of, value, source, fetched_at
-          FROM ranked
-          WHERE rn = 1
+    sql: `SELECT * FROM timeseries
+          WHERE indicator_id = ?
+            AND source = ?
+            AND as_of >= date('now', '-' || ? || ' days')
           ORDER BY as_of ASC`,
-    args: [indicatorId, days],
+    args: [indicatorId, source, days],
   })
   return res.rows.map((r) => rowToTimeseries(r as Row))
 }
