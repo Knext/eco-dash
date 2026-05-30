@@ -6,6 +6,7 @@ export type Category =
   | 'korea'
   | 'fx'
   | 'commodity'
+  | 'equity'
 
 export type SourceType = 'fred' | 'ecos' | 'kita' | 'kosis' | 'yfinance' | 'stooq' | 'manual'
 
