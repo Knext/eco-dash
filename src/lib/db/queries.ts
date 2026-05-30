@@ -115,23 +115,30 @@ export async function getRecentValues(
 ): Promise<TimeSeriesRow[]> {
   await ensureSchema()
   const db = getDb()
-  // Pin history to the source that produced the latest row. The PK is
-  // (indicator_id, as_of, source), so when an indicator's source has been
-  // swapped (e.g. DXY FRED → yfinance), both series' rows coexist on
-  // overlapping dates. Mixing them in a single sparkline produces a
-  // sawtooth between two different index scales.
+  // Deduplicate per (indicator_id, as_of) so a single date never produces
+  // two points. The PK is (indicator_id, as_of, source), so when an
+  // indicator's source has been swapped (e.g. DXY FRED → yfinance) both
+  // series' rows coexist on overlapping dates — mixing them in one
+  // sparkline produces a sawtooth between two index scales. For each date
+  // we keep the most-recently-fetched row, which matches the displayed
+  // latest value's source on the freshest day and degrades gracefully to
+  // the older source on dates where the new one has no data yet.
   const res = await db.execute({
-    sql: `SELECT * FROM timeseries
-          WHERE indicator_id = ?
-            AND as_of >= date('now', '-' || ? || ' days')
-            AND source = (
-              SELECT source FROM timeseries
-              WHERE indicator_id = ?
-              ORDER BY as_of DESC, fetched_at DESC
-              LIMIT 1
-            )
+    sql: `WITH ranked AS (
+            SELECT indicator_id, as_of, value, source, fetched_at,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY indicator_id, as_of
+                     ORDER BY fetched_at DESC, source DESC
+                   ) AS rn
+            FROM timeseries
+            WHERE indicator_id = ?
+              AND as_of >= date('now', '-' || ? || ' days')
+          )
+          SELECT indicator_id, as_of, value, source, fetched_at
+          FROM ranked
+          WHERE rn = 1
           ORDER BY as_of ASC`,
-    args: [indicatorId, days, indicatorId],
+    args: [indicatorId, days],
   })
   return res.rows.map((r) => rowToTimeseries(r as Row))
 }
