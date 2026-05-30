@@ -8,6 +8,10 @@ export type Category =
   | 'commodity'
   | 'equity'
 
+/**
+ * @deprecated Use `SourceName` from `../sources/options` — this alias
+ * exists only for any external callers still importing the old name.
+ */
 export type SourceType = 'fred' | 'ecos' | 'kita' | 'kosis' | 'yfinance' | 'stooq' | 'manual'
 
 export type Cadence = 'daily' | 'weekly' | 'monthly'
@@ -23,15 +27,16 @@ export interface ThresholdConfig {
   readonly direction: Direction
 }
 
+/**
+ * Display + signal metadata for an indicator. Source/fetcher concerns
+ * moved out of this shape in Phase 5 — they live on `IndicatorPlugin.fetcher`
+ * as a typed `FetcherSpec` (see `../sources/options.ts`).
+ */
 export interface IndicatorDef {
   readonly id: string
   readonly name: string
   readonly nameKr: string
   readonly category: Category
-  readonly source: SourceType
-  readonly sourceId: string
-  readonly fallbackSource?: SourceType
-  readonly fallbackSourceId?: string
   readonly unit: Unit
   readonly precision: number
   readonly thresholds: ThresholdConfig
@@ -138,7 +143,8 @@ export interface DetailPlugin {
  */
 export interface IndicatorPlugin {
   readonly def: IndicatorDef
-  readonly fetcher?: _FetcherSpec
+  /** Required after Phase 5 — every registered indicator must declare its fetcher. */
+  readonly fetcher: _FetcherSpec
   readonly card?: CardPlugin
   readonly detail?: DetailPlugin
 }

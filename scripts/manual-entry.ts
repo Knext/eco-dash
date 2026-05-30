@@ -1,7 +1,7 @@
 import './load-env'
 import { ensureSchema } from '../src/lib/db/client'
 import { upsertManualOverride, deleteManualOverride, getManualOverrides } from '../src/lib/db/queries'
-import { getIndicator, INDICATORS } from '../src/lib/indicators/registry'
+import { getIndicator, INDICATOR_PLUGINS } from '../src/lib/indicators/registry'
 
 const USAGE = `Usage:
   npm run manual-entry -- <indicator_id> <YYYY-MM-DD> <value> [note]
@@ -10,8 +10,10 @@ const USAGE = `Usage:
   npm run manual-entry -- --help
 
 Indicators with manual fallback:
-${INDICATORS.filter((i) => i.fallbackSource === 'manual' || i.source === 'manual')
-  .map((i) => `  ${i.id.padEnd(20)} ${i.nameKr} (${i.unit})`)
+${INDICATOR_PLUGINS.filter(
+  (p) => p.fetcher.source === 'manual' || p.fetcher.fallback?.source === 'manual',
+)
+  .map((p) => `  ${p.def.id.padEnd(20)} ${p.def.nameKr} (${p.def.unit})`)
   .join('\n')}
 
 Examples:

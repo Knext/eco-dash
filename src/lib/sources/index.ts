@@ -8,7 +8,7 @@ import { kosisFetcher } from './kosis'
 import { yfinanceFetcher } from './yfinance'
 import { stooqFetcher } from './stooq'
 import { manualFetcher } from './manual'
-import { coerceOptions, type FetcherSpec, type OptionsBySource, type SourceName } from './options'
+import type { FetcherSpec, OptionsBySource, SourceName } from './options'
 import type { SourceFetcher, FetchResult } from './types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,26 +20,6 @@ const FETCHERS: Record<SourceName, SourceFetcher<any>> = {
   yfinance: yfinanceFetcher,
   stooq: stooqFetcher,
   manual: manualFetcher,
-}
-
-/**
- * Build a FetcherSpec from the legacy IndicatorDef shape. Used for
- * indicators that haven't migrated to plugin-level fetchers yet.
- */
-function specFromLegacy(def: IndicatorDef): FetcherSpec {
-  const source = def.source as SourceName
-  return {
-    source,
-    options: coerceOptions(source, def.sourceId),
-    ...(def.fallbackSource && def.fallbackSourceId
-      ? {
-          fallback: {
-            source: def.fallbackSource as SourceName,
-            options: coerceOptions(def.fallbackSource as SourceName, def.fallbackSourceId),
-          } as FetcherSpec,
-        }
-      : {}),
-  } as FetcherSpec
 }
 
 async function runSpec(
@@ -65,10 +45,18 @@ export async function fetchIndicator(
   def: IndicatorDef,
   startDate?: string,
 ): Promise<FetchResult> {
-  // Prefer the plugin's typed FetcherSpec when present; otherwise build
-  // one from the legacy IndicatorDef fields.
   const plugin = getPlugin(def.id)
-  const spec: FetcherSpec = plugin?.fetcher ?? specFromLegacy(def)
+  if (!plugin) {
+    return {
+      indicatorId: def.id,
+      source: 'unknown',
+      rows: [],
+      success: false,
+      error: `No plugin registered for indicator ${def.id}`,
+      durationMs: 0,
+    }
+  }
+  const spec = plugin.fetcher
 
   const result = await runSpec(def.id, spec, startDate)
   if (result.success && result.rows.length > 0) return result

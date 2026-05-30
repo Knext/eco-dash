@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { INDICATORS, INDICATOR_PLUGINS } from '@/lib/indicators/registry'
+import {
+  INDICATORS,
+  INDICATOR_PLUGINS,
+  getPlugin,
+} from '@/lib/indicators/registry'
 import { isStale, statusFor } from '@/lib/indicators/thresholds'
 import { getLatestValue, getRecentValues } from '@/lib/db/queries'
 import { toPoints, yoy, lastValue } from '@/lib/indicators/normalize'
@@ -39,7 +43,9 @@ export async function GET() {
 
       const last = await getLatestValue(def.id)
       const asOf = last?.as_of ?? null
-      const source = last?.source ?? def.source
+      // `def.source` is gone in Phase 5; fall back to the plugin's
+      // primary fetcher source for display when no rows exist yet.
+      const source = last?.source ?? getPlugin(def.id)?.fetcher.source ?? 'unknown'
       const stale = asOf ? isStale(def, asOf) : true
       const status = stale ? 'stale' : latest !== null ? statusFor(def, latest) : 'stale'
 

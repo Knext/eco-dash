@@ -34,8 +34,6 @@ describe('thresholds.isStale', () => {
     name: 'Test',
     nameKr: '테스트',
     category: 'rates',
-    source: 'fred',
-    sourceId: 'TEST',
     unit: 'pct',
     precision: 2,
     thresholds: { normal: [0, 1], watch: [1, 2], alert: [2, 999], direction: 'above' },
