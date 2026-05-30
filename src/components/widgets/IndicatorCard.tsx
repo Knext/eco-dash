@@ -69,10 +69,11 @@ export function IndicatorCard({
   const unitLabel =
     unit === 'pct' ? '%' : unit === 'bp' ? 'bp' : unit === 'krw' ? '원' : unit === 'usd' ? '$' : ''
 
-  // Chart line color follows the visible-window trend (first vs last
-  // history point), not the alert status — Korean stock convention:
+  // Chart line color matches the ▲/▼ indicator displayed below the value
+  // (latest vs previous), not the long-term window trend, so the line
+  // color and the change badge always agree. Korean stock convention:
   // 상승=빨강, 하락=파랑, 동일=회색.
-  const trendColor = trendLineColor(history)
+  const trendColor = trendLineColor(change)
 
   return (
     <a
@@ -123,12 +124,7 @@ const TREND_UP = '#ef4444'
 const TREND_DOWN = '#3b82f6'
 const TREND_FLAT = '#9ca3af'
 
-function trendLineColor(points: Point[]): string {
-  if (points.length < 2) return TREND_FLAT
-  const first = points[0]
-  const last = points[points.length - 1]
-  if (!first || !last) return TREND_FLAT
-  if (last.value > first.value) return TREND_UP
-  if (last.value < first.value) return TREND_DOWN
-  return TREND_FLAT
+function trendLineColor(change: number | null): string {
+  if (change === null || change === 0) return TREND_FLAT
+  return change > 0 ? TREND_UP : TREND_DOWN
 }
