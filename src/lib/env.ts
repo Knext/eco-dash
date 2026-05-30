@@ -18,12 +18,17 @@ const envSchema = z.object({
   DB_PATH: z.string().default('./data/timeseries.db'),
   TURSO_DATABASE_URL: z.string().optional(),
   TURSO_AUTH_TOKEN: z.string().optional(),
+  // Optional in the schema so `next build` (which evaluates env at page-data
+  // collection without runtime secrets injected — e.g. GitHub Actions CI)
+  // doesn't fail. Auth helpers fail-closed when missing, so the cron route
+  // still rejects unauthenticated requests in production.
   CRON_SECRET: z
     .string()
     .min(32, 'CRON_SECRET must be at least 32 chars')
     .refine((v) => !v.toLowerCase().startsWith('change-me'), {
       message: 'CRON_SECRET must not use the placeholder default. Generate one with `openssl rand -hex 32`.',
-    }),
+    })
+    .optional(),
   DATA_REFRESH_CRON: z.string().default('0 0 * * *'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   TZ: z.string().default('Asia/Seoul'),
@@ -45,7 +50,9 @@ const parseResult = envSchema.safeParse({
   DB_PATH: process.env.DB_PATH,
   TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
   TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
-  CRON_SECRET: process.env.CRON_SECRET,
+  // Treat empty string the same as unset — Vercel sometimes injects empty
+  // values for unconfigured secrets, which would otherwise fail .min(32).
+  CRON_SECRET: process.env.CRON_SECRET || undefined,
   DATA_REFRESH_CRON: process.env.DATA_REFRESH_CRON,
   LOG_LEVEL: process.env.LOG_LEVEL,
   TZ: process.env.TZ,
