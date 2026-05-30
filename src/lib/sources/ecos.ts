@@ -1,4 +1,5 @@
 import { env } from '../env'
+import { coerceOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
@@ -15,9 +16,9 @@ interface EcosResponse {
   RESULT?: { CODE: string; MESSAGE: string }
 }
 
-export const ecosFetcher: SourceFetcher = {
+export const ecosFetcher: SourceFetcher<'ecos'> = {
   name: 'ecos',
-  async fetch(indicatorId, sourceId, startDate): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId, startDate): Promise<FetchResult> {
     const start = Date.now()
     if (!env.ECOS_API_KEY) {
       return {
@@ -30,17 +31,19 @@ export const ecosFetcher: SourceFetcher = {
       }
     }
 
-    // sourceId can encode an ITEM_CODE: "STAT_CODE/ITEM_CODE" (ECOS series
-    // like 731Y001 hold multiple currencies — without the item code, all
-    // currencies collapse onto the same PK and clobber each other).
-    const [statCode, itemCode] = sourceId.split('/')
+    const options =
+      typeof optionsOrSourceId === 'string'
+        ? coerceOptions('ecos', optionsOrSourceId)
+        : optionsOrSourceId
+    const statCode = options.stat
+    const itemCode = options.item
     if (!statCode) {
       return {
         indicatorId,
         source: 'ecos',
         rows: [],
         success: false,
-        error: `invalid sourceId: ${sourceId}`,
+        error: 'ecos options.stat is required',
         durationMs: Date.now() - start,
       }
     }

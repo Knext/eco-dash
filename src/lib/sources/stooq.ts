@@ -1,14 +1,19 @@
+import { coerceOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
 const STOOQ_BASE = 'https://stooq.com/q/d/l'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-export const stooqFetcher: SourceFetcher = {
+export const stooqFetcher: SourceFetcher<'stooq'> = {
   name: 'stooq',
-  async fetch(indicatorId, sourceId): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId): Promise<FetchResult> {
     const start = Date.now()
-    const url = `${STOOQ_BASE}/?s=${encodeURIComponent(sourceId)}&i=d`
+    const options =
+      typeof optionsOrSourceId === 'string'
+        ? coerceOptions('stooq', optionsOrSourceId)
+        : optionsOrSourceId
+    const url = `${STOOQ_BASE}/?s=${encodeURIComponent(options.symbol)}&i=d`
     try {
       const res = await fetch(url, { headers: { 'User-Agent': 'economy-dashboard/0.1' } })
       if (!res.ok) throw new Error(`stooq HTTP ${res.status}`)

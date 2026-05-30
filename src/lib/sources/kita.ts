@@ -1,4 +1,5 @@
 import { env } from '../env'
+import { coerceOptions, type KitaOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
@@ -41,9 +42,9 @@ interface NitemTradeResponse {
 
 type Metric = 'expDlr' | 'impDlr' | 'balPayments'
 
-export const kitaFetcher: SourceFetcher = {
+export const kitaFetcher: SourceFetcher<'kita'> = {
   name: 'kita',
-  async fetch(indicatorId, sourceId): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId): Promise<FetchResult> {
     const start = Date.now()
     if (!env.PUBLIC_DATA_API_KEY) {
       return {
@@ -57,7 +58,11 @@ export const kitaFetcher: SourceFetcher = {
     }
 
     try {
-      const { hsSgn, kind } = parseSourceId(sourceId)
+      const options =
+        typeof optionsOrSourceId === 'string'
+          ? coerceOptions('kita', optionsOrSourceId)
+          : (optionsOrSourceId as KitaOptions)
+      const { hsSgn, kind } = kitaKindToParams(options.kind)
       const monthlyTotals = await fetchTopPartnerMonths(env.PUBLIC_DATA_API_KEY, hsSgn)
       const rows = projectMetric(monthlyTotals, kind)
       if (rows.length === 0) {
@@ -85,16 +90,16 @@ export const kitaFetcher: SourceFetcher = {
   },
 }
 
-function parseSourceId(sourceId: string): { hsSgn: string; kind: 'yoy' | 'balance' } {
-  switch (sourceId) {
+function kitaKindToParams(
+  kind: KitaOptions['kind'],
+): { hsSgn: string; kind: 'yoy' | 'balance' } {
+  switch (kind) {
     case 'EXPORT_TOTAL_YOY':
       return { hsSgn: '', kind: 'yoy' }
     case 'EXPORT_SEMICONDUCTOR_YOY':
       return { hsSgn: '854', kind: 'yoy' }
     case 'TRADE_BALANCE':
       return { hsSgn: '', kind: 'balance' }
-    default:
-      throw new Error(`unknown KITA sourceId: ${sourceId}`)
   }
 }
 

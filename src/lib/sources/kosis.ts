@@ -1,4 +1,5 @@
 import { env } from '../env'
+import { coerceOptions, type KosisOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
@@ -42,9 +43,9 @@ interface KosisRow {
   C1_NM?: string
 }
 
-export const kosisFetcher: SourceFetcher = {
+export const kosisFetcher: SourceFetcher<'kosis'> = {
   name: 'kosis',
-  async fetch(indicatorId, sourceId): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId): Promise<FetchResult> {
     const start = Date.now()
     if (!env.KOSIS_API_KEY) {
       return {
@@ -57,14 +58,19 @@ export const kosisFetcher: SourceFetcher = {
       }
     }
 
-    const entry = PARAM_ENV[sourceId]
+    const options =
+      typeof optionsOrSourceId === 'string'
+        ? coerceOptions('kosis', optionsOrSourceId)
+        : (optionsOrSourceId as KosisOptions)
+    const paramKey = options.paramKey
+    const entry = PARAM_ENV[paramKey]
     if (!entry?.value) {
       return {
         indicatorId,
         source: 'kosis',
         rows: [],
         success: false,
-        error: `${entry?.envName ?? `KOSIS:${sourceId}`} env var not set — see docs/DEPLOY_VERCEL.md for KOSIS setup`,
+        error: `${entry?.envName ?? `KOSIS:${paramKey}`} env var not set — see docs/DEPLOY_VERCEL.md for KOSIS setup`,
         durationMs: Date.now() - start,
       }
     }

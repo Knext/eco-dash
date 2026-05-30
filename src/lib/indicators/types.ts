@@ -72,30 +72,11 @@ export interface IndicatorValue {
  * drive data collection.
  */
 
-// Re-exported here so source modules can avoid a circular dep via
-// pulling the existing FetchResult type — but the actual contract
-// lives in src/lib/sources/types.ts and we keep that as the source
-// of truth.
-export type FetcherSourceName =
-  | 'fred'
-  | 'ecos'
-  | 'kita'
-  | 'kosis'
-  | 'yfinance'
-  | 'stooq'
-  | 'manual'
-
-/**
- * Typed fetcher specification. The `options` shape is per-source —
- * Phase 2 will define `YFinanceOptions`, `EcosOptions`, etc. and
- * narrow this. For now `unknown` keeps the contract present without
- * forcing any caller to commit.
- */
-export interface FetcherSpec<O = unknown> {
-  readonly source: FetcherSourceName
-  readonly options: O
-  readonly fallback?: FetcherSpec
-}
+// The typed FetcherSpec lives in `src/lib/sources/options.ts` (next to
+// the per-source Option shapes). Re-exported here so plugin authors
+// only import from `@/lib/indicators/types`.
+import type { FetcherSpec as _FetcherSpec } from '../sources/options'
+export type { FetcherSpec, SourceName } from '../sources/options'
 
 /** Card renderer plugin. */
 export interface CardPlugin {
@@ -117,7 +98,7 @@ export interface DetailPlugin {
  */
 export interface IndicatorPlugin {
   readonly def: IndicatorDef
-  readonly fetcher?: FetcherSpec
+  readonly fetcher?: _FetcherSpec
   readonly card?: CardPlugin
   readonly detail?: DetailPlugin
 }

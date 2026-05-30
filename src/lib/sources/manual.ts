@@ -7,7 +7,7 @@ import type { FetchResult, SourceFetcher } from './types'
  *
  * Best fit for low-frequency monthly data with no free API (e.g. Korea exports).
  */
-export const manualFetcher: SourceFetcher = {
+export const manualFetcher: SourceFetcher<'manual'> = {
   name: 'manual',
   async fetch(indicatorId): Promise<FetchResult> {
     const start = Date.now()

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { env } from '../env'
+import { coerceOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
@@ -16,9 +17,9 @@ const ResponseSchema = z.object({
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-export const fredFetcher: SourceFetcher = {
+export const fredFetcher: SourceFetcher<'fred'> = {
   name: 'fred',
-  async fetch(indicatorId, sourceId, startDate): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId, startDate): Promise<FetchResult> {
     const start = Date.now()
     if (!env.FRED_API_KEY) {
       return {
@@ -31,8 +32,13 @@ export const fredFetcher: SourceFetcher = {
       }
     }
 
+    const options =
+      typeof optionsOrSourceId === 'string'
+        ? coerceOptions('fred', optionsOrSourceId)
+        : optionsOrSourceId
+
     const url = new URL(FRED_BASE)
-    url.searchParams.set('series_id', sourceId)
+    url.searchParams.set('series_id', options.series)
     url.searchParams.set('api_key', env.FRED_API_KEY)
     url.searchParams.set('file_type', 'json')
     if (startDate) url.searchParams.set('observation_start', startDate)

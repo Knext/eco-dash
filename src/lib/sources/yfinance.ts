@@ -1,3 +1,4 @@
+import { coerceOptions } from './options'
 import { redact, safeFinite } from './redact'
 import type { FetchResult, SourceFetcher } from './types'
 
@@ -8,10 +9,14 @@ import type { FetchResult, SourceFetcher } from './types'
  */
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart'
 
-export const yfinanceFetcher: SourceFetcher = {
+export const yfinanceFetcher: SourceFetcher<'yfinance'> = {
   name: 'yfinance',
-  async fetch(indicatorId, sourceId, startDate): Promise<FetchResult> {
+  async fetch(indicatorId, optionsOrSourceId, startDate): Promise<FetchResult> {
     const start = Date.now()
+    const options =
+      typeof optionsOrSourceId === 'string'
+        ? coerceOptions('yfinance', optionsOrSourceId)
+        : optionsOrSourceId
     const period1 = Math.floor(
       startDate
         ? new Date(startDate).getTime() / 1000
@@ -19,7 +24,7 @@ export const yfinanceFetcher: SourceFetcher = {
     )
     const period2 = Math.floor(Date.now() / 1000)
 
-    const url = new URL(`${YF_BASE}/${encodeURIComponent(sourceId)}`)
+    const url = new URL(`${YF_BASE}/${encodeURIComponent(options.ticker)}`)
     url.searchParams.set('period1', period1.toString())
     url.searchParams.set('period2', period2.toString())
     url.searchParams.set('interval', '1d')
