@@ -25,22 +25,15 @@ import { AlertFeed } from '@/components/widgets/AlertFeed'
 import { ReleaseSchedule } from '@/components/widgets/ReleaseSchedule'
 import { useCardOrder } from '@/lib/useCardOrder'
 import { cn } from '@/lib/utils'
-import type { IndicatorStatus, Unit } from '@/lib/indicators/types'
+import type { IndicatorSnapshot } from '@/lib/indicators/types'
 import type { ActiveSignal } from '@/lib/signals/types'
-import type { Point } from '@/lib/indicators/normalize'
 
-interface IndicatorRow {
-  id: string
-  nameKr: string
-  category: string
-  unit: Unit
-  precision: number
+/**
+ * Row shape returned by /api/indicators. Extends IndicatorSnapshot
+ * with the `mainView` flag (used to split main vs aux tabs).
+ */
+interface IndicatorRow extends IndicatorSnapshot {
   mainView: boolean
-  value: number | null
-  previousValue: number | null
-  asOf: string | null
-  status: IndicatorStatus | 'stale'
-  history: Point[]
 }
 
 interface IndicatorsResponse {
@@ -218,7 +211,11 @@ export function DashboardGrid() {
                     const i = indexById.get(id)
                     if (!i) return null
                     return (
-                      <SortableIndicatorCard key={i.id} {...toCardProps(i)} isEditing={isEditing} />
+                      <SortableIndicatorCard
+                        key={i.id}
+                        snapshot={i}
+                        isEditing={isEditing}
+                      />
                     )
                   })}
                 </div>
@@ -273,7 +270,7 @@ export function DashboardGrid() {
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {currentTabIndicators.map((i) => (
-                  <IndicatorCard key={i.id} {...toCardProps(i)} />
+                  <IndicatorCard key={i.id} snapshot={i} />
                 ))}
               </div>
             </div>
@@ -293,20 +290,6 @@ export function DashboardGrid() {
       </main>
     </>
   )
-}
-
-function toCardProps(i: IndicatorRow) {
-  return {
-    id: i.id,
-    nameKr: i.nameKr,
-    unit: i.unit,
-    precision: i.precision,
-    value: i.value,
-    previousValue: i.previousValue,
-    asOf: i.asOf,
-    status: i.status,
-    history: i.history,
-  }
 }
 
 function SkeletonGrid({ count = 4 }: { count?: number }) {

@@ -78,16 +78,56 @@ export interface IndicatorValue {
 import type { FetcherSpec as _FetcherSpec } from '../sources/options'
 export type { FetcherSpec, SourceName } from '../sources/options'
 
+/**
+ * The runtime snapshot of an indicator as it flows from the API list
+ * endpoint into the dashboard UI. CardPlugin and DetailPlugin renderers
+ * receive this shape (or arrays of it for multi-indicator cards).
+ */
+export interface IndicatorSnapshot {
+  readonly id: string
+  readonly nameKr: string
+  readonly category: string
+  readonly unit: Unit
+  readonly precision: number
+  readonly value: number | null
+  readonly previousValue: number | null
+  readonly asOf: string | null
+  readonly status: IndicatorStatus | 'stale'
+  // Recharts requires plain arrays — re-imported from normalize.ts to
+  // avoid a deeper dependency cycle.
+  readonly history: ReadonlyArray<{ asOf: string; value: number }>
+}
+
+export interface CardRendererProps {
+  readonly snapshot: IndicatorSnapshot
+  /** Companions resolved from CardPlugin.dependsOn, keyed by indicator id. */
+  readonly related?: Readonly<Record<string, IndicatorSnapshot>>
+}
+
+export interface DetailRendererProps {
+  readonly def: IndicatorDef
+  readonly snapshot: IndicatorSnapshot
+  readonly related?: Readonly<Record<string, IndicatorSnapshot>>
+}
+
+/**
+ * React component types. Kept generic-ish (parameterless function types)
+ * so this file can stay a pure-types module without importing React. The
+ * actual JSX implementations live in `src/components/indicators/...`.
+ */
+export type CardRenderer = (props: CardRendererProps) => unknown
+export type DetailRenderer = (props: DetailRendererProps) => unknown
+
 /** Card renderer plugin. */
 export interface CardPlugin {
-  readonly render: (props: unknown) => unknown
+  readonly render: CardRenderer
   /** IDs of additional indicators needed to render the card. */
   readonly dependsOn?: readonly string[]
 }
 
 /** Detail-page chart renderer plugin. */
 export interface DetailPlugin {
-  readonly render: (props: unknown) => unknown
+  readonly render: DetailRenderer
   /** IDs of additional indicators needed to render the detail view. */
   readonly dependsOn?: readonly string[]
 }
