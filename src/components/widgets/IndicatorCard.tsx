@@ -20,30 +20,10 @@ interface Props {
 }
 
 const statusConfig = {
-  normal: {
-    color: '#10b981',
-    accent: 'text-emerald-600 dark:text-emerald-400',
-    Icon: CircleDot,
-    label: '정상',
-  },
-  watch: {
-    color: '#f59e0b',
-    accent: 'text-amber-600 dark:text-amber-400',
-    Icon: AlertTriangle,
-    label: '경계',
-  },
-  alert: {
-    color: '#ef4444',
-    accent: 'text-red-600 dark:text-red-400',
-    Icon: AlertOctagon,
-    label: '위험',
-  },
-  stale: {
-    color: '#9ca3af',
-    accent: 'text-mute',
-    Icon: Minus,
-    label: '갱신 지연',
-  },
+  normal: { color: '#10b981', Icon: CircleDot, label: '정상' },
+  watch: { color: '#f59e0b', Icon: AlertTriangle, label: '경계' },
+  alert: { color: '#ef4444', Icon: AlertOctagon, label: '위험' },
+  stale: { color: '#9ca3af', Icon: Minus, label: '갱신 지연' },
 } as const
 
 export function IndicatorCard({
@@ -103,8 +83,8 @@ export function IndicatorCard({
       <div className="mt-0.5 text-caption-sm tabular text-mute">
         {change !== null ? (
           <>
-            <span className={cn('font-semibold', cfg.accent)}>
-              {change >= 0 ? '▲' : '▼'} {formatNumber(Math.abs(change), precision)}
+            <span className="font-semibold" style={{ color: trendColor }}>
+              {change > 0 ? '▲' : change < 0 ? '▼' : '—'} {formatNumber(Math.abs(change), precision)}
             </span>
             {changePct !== null && <span className="ml-1">({formatPct(changePct, 1)})</span>}
           </>
