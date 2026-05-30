@@ -115,12 +115,23 @@ export async function getRecentValues(
 ): Promise<TimeSeriesRow[]> {
   await ensureSchema()
   const db = getDb()
+  // Pin history to the source that produced the latest row. The PK is
+  // (indicator_id, as_of, source), so when an indicator's source has been
+  // swapped (e.g. DXY FRED → yfinance), both series' rows coexist on
+  // overlapping dates. Mixing them in a single sparkline produces a
+  // sawtooth between two different index scales.
   const res = await db.execute({
     sql: `SELECT * FROM timeseries
           WHERE indicator_id = ?
             AND as_of >= date('now', '-' || ? || ' days')
+            AND source = (
+              SELECT source FROM timeseries
+              WHERE indicator_id = ?
+              ORDER BY as_of DESC, fetched_at DESC
+              LIMIT 1
+            )
           ORDER BY as_of ASC`,
-    args: [indicatorId, days],
+    args: [indicatorId, days, indicatorId],
   })
   return res.rows.map((r) => rowToTimeseries(r as Row))
 }
