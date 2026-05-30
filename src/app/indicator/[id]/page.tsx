@@ -1,21 +1,59 @@
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/dashboard/Header'
-import { getIndicator } from '@/lib/indicators/registry'
-import { getRecentValues, getRecentSignals } from '@/lib/db/queries'
+import { getIndicator, getPlugin } from '@/lib/indicators/registry'
+import { getRecentValues, getRecentSignals, getLatestValue } from '@/lib/db/queries'
 import { toPoints, yoy, lastValue } from '@/lib/indicators/normalize'
+import { statusFor, isStale } from '@/lib/indicators/thresholds'
 import { formatNumber } from '@/lib/utils'
-import { IndicatorHistoryChart } from '@/components/widgets/IndicatorHistoryChart'
+import { DefaultDetail } from '@/components/indicators/_default/Detail'
+import type { IndicatorDef, IndicatorSnapshot } from '@/lib/indicators/types'
 
 export const dynamic = 'force-dynamic'
+
+async function snapshotFor(def: IndicatorDef): Promise<IndicatorSnapshot> {
+  const window = def.transform === 'yoy' ? 800 : 800
+  const rows = await getRecentValues(def.id, window)
+  const points = toPoints(rows)
+  const transformed = def.transform === 'yoy' ? yoy(points) : points
+  const latest = lastValue(transformed)
+  const prev =
+    transformed.length > 1 ? transformed[transformed.length - 2]?.value ?? null : null
+  const last = await getLatestValue(def.id)
+  const asOf = last?.as_of ?? null
+  const stale = asOf ? isStale(def, asOf) : true
+  const status = stale ? 'stale' : latest !== null ? statusFor(def, latest) : 'stale'
+  return {
+    id: def.id,
+    nameKr: def.nameKr,
+    category: def.category,
+    unit: def.unit,
+    precision: def.precision,
+    value: latest,
+    previousValue: prev,
+    asOf,
+    status,
+    history: transformed,
+  }
+}
 
 export default async function IndicatorPage({ params }: { params: { id: string } }) {
   const def = getIndicator(params.id)
   if (!def) notFound()
 
-  const rows = await getRecentValues(def.id, 800)
-  const points = toPoints(rows)
-  const transformed = def.transform === 'yoy' ? yoy(points) : points
-  const latest = lastValue(transformed)
+  const snapshot = await snapshotFor(def)
+  const transformed = snapshot.history
+  const latest = snapshot.value
+
+  // Plugin-declared companions for the detail view.
+  const plugin = getPlugin(def.id)
+  const companionIds = plugin?.detail?.dependsOn ?? []
+  const related: Record<string, IndicatorSnapshot> = {}
+  for (const cid of companionIds) {
+    const cdef = getIndicator(cid)
+    if (cdef) related[cid] = await snapshotFor(cdef)
+  }
+
+  const Render = (plugin?.detail?.render ?? DefaultDetail) as typeof DefaultDetail
 
   const allSignals = await getRecentSignals(180)
   const ruleSignals = allSignals.filter((s) => {
@@ -51,7 +89,7 @@ export default async function IndicatorPage({ params }: { params: { id: string }
           </div>
 
           <div className="mt-6">
-            <IndicatorHistoryChart points={transformed} thresholds={def.thresholds} />
+            <Render def={def} snapshot={snapshot} related={related} />
           </div>
         </section>
 

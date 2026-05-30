@@ -25,15 +25,20 @@ import { AlertFeed } from '@/components/widgets/AlertFeed'
 import { ReleaseSchedule } from '@/components/widgets/ReleaseSchedule'
 import { useCardOrder } from '@/lib/useCardOrder'
 import { cn } from '@/lib/utils'
+import { getPlugin } from '@/lib/indicators/registry'
 import type { IndicatorSnapshot } from '@/lib/indicators/types'
 import type { ActiveSignal } from '@/lib/signals/types'
 
 /**
  * Row shape returned by /api/indicators. Extends IndicatorSnapshot
- * with the `mainView` flag (used to split main vs aux tabs).
+ * with the `mainView` flag (used to split main vs aux tabs) and the
+ * `companion` flag (server-set when this row exists only to satisfy
+ * another card's CardPlugin.dependsOn — should not render as its own
+ * card on the dashboard).
  */
 interface IndicatorRow extends IndicatorSnapshot {
   mainView: boolean
+  companion?: boolean
 }
 
 interface IndicatorsResponse {
@@ -106,22 +111,26 @@ export function DashboardGrid() {
   const indicators = indicatorsResp?.indicators ?? []
   const indexById = useMemo(() => new Map(indicators.map((i) => [i.id, i])), [indicators])
 
+  // Companion-only rows (CardPlugin.dependsOn payload) ship in the
+  // response but should not appear as their own dashboard cards.
+  const renderable = useMemo(() => indicators.filter((i) => !i.companion), [indicators])
+
   const defaultMainIds = useMemo(
-    () => indicators.filter((i) => i.mainView).map((i) => i.id),
-    [indicators],
+    () => renderable.filter((i) => i.mainView).map((i) => i.id),
+    [renderable],
   )
 
   // Group auxiliary indicators by tab. Preserve definition order within each tab.
   const auxByTab = useMemo(() => {
     const map = new Map<string, IndicatorRow[]>()
     for (const tab of TABS) map.set(tab.id, [])
-    for (const i of indicators) {
+    for (const i of renderable) {
       if (i.mainView) continue
       const tabId = tabForCategory(i.category)
       map.get(tabId)?.push(i)
     }
     return map
-  }, [indicators])
+  }, [renderable])
 
   // Hide tabs that have no indicators (e.g. when all "other" cards are main)
   const visibleTabs = useMemo(
@@ -214,6 +223,7 @@ export function DashboardGrid() {
                       <SortableIndicatorCard
                         key={i.id}
                         snapshot={i}
+                        related={relatedFor(i.id, indexById)}
                         isEditing={isEditing}
                       />
                     )
@@ -270,7 +280,11 @@ export function DashboardGrid() {
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {currentTabIndicators.map((i) => (
-                  <IndicatorCard key={i.id} snapshot={i} />
+                  <IndicatorCard
+                    key={i.id}
+                    snapshot={i}
+                    related={relatedFor(i.id, indexById)}
+                  />
                 ))}
               </div>
             </div>
@@ -290,6 +304,26 @@ export function DashboardGrid() {
       </main>
     </>
   )
+}
+
+/**
+ * Resolve the snapshots an indicator's CardPlugin depends on. Returns
+ * undefined when the plugin has no dependencies (DefaultCard never uses
+ * `related`, so the prop just drops out cleanly).
+ */
+function relatedFor(
+  id: string,
+  indexById: Map<string, IndicatorRow>,
+): Record<string, IndicatorSnapshot> | undefined {
+  const plugin = getPlugin(id)
+  const deps = plugin?.card?.dependsOn
+  if (!deps?.length) return undefined
+  const out: Record<string, IndicatorSnapshot> = {}
+  for (const d of deps) {
+    const snap = indexById.get(d)
+    if (snap) out[d] = snap
+  }
+  return out
 }
 
 function SkeletonGrid({ count = 4 }: { count?: number }) {
