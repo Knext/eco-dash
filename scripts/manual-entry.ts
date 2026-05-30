@@ -1,7 +1,7 @@
 import './load-env'
 import { ensureSchema } from '../src/lib/db/client'
 import { upsertManualOverride, deleteManualOverride, getManualOverrides } from '../src/lib/db/queries'
-import { getIndicator, INDICATORS } from '../src/lib/indicators/definitions'
+import { getIndicator, INDICATORS } from '../src/lib/indicators/registry'
 
 const USAGE = `Usage:
   npm run manual-entry -- <indicator_id> <YYYY-MM-DD> <value> [note]

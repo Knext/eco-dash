@@ -1,6 +1,6 @@
 import cron from 'node-cron'
 import { env } from './env'
-import { INDICATORS } from './indicators/definitions'
+import { INDICATORS } from './indicators/registry'
 import { fetchAndStore } from './sources'
 import { buildContext, evaluateAll } from './signals/evaluator'
 import { classifyRegime } from './signals/regime'

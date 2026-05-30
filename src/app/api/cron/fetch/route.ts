@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { INDICATORS } from '@/lib/indicators/definitions'
+import { INDICATORS } from '@/lib/indicators/registry'
 import { fetchAndStore } from '@/lib/sources'
 import { checkBearer } from '@/lib/auth'
 import { getDb, ensureSchema } from '@/lib/db/client'

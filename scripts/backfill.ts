@@ -1,5 +1,5 @@
 import './load-env'
-import { INDICATORS } from '../src/lib/indicators/definitions'
+import { INDICATORS } from '../src/lib/indicators/registry'
 import { fetchAndStore } from '../src/lib/sources'
 import { ensureSchema } from '../src/lib/db/client'
 

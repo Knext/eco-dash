@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/dashboard/Header'
-import { getIndicator } from '@/lib/indicators/definitions'
+import { getIndicator } from '@/lib/indicators/registry'
 import { getRecentValues, getRecentSignals } from '@/lib/db/queries'
 import { toPoints, yoy, lastValue } from '@/lib/indicators/normalize'
 import { formatNumber } from '@/lib/utils'

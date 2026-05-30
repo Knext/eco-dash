@@ -473,9 +473,11 @@ export const INDICATORS: readonly IndicatorDef[] = [
   },
 ] as const
 
-export function getIndicator(id: string): IndicatorDef | undefined {
-  return INDICATORS.find((i) => i.id === id)
-}
-
-export const MAIN_VIEW_INDICATORS = INDICATORS.filter((i) => i.mainView).map((i) => i.id)
-export const ALL_INDICATOR_IDS = INDICATORS.map((i) => i.id)
+/**
+ * NOTE: `getIndicator`, `MAIN_VIEW_INDICATORS`, and `ALL_INDICATOR_IDS`
+ * moved to `./registry` in Phase 1 of the plugin refactor. Import from
+ * there instead. This file now holds only the raw definition array,
+ * which the registry wraps as `IndicatorPlugin`s. Phase 5 will fold
+ * each entry into `src/lib/indicators/<ID>/index.ts` and delete this
+ * file.
+ */

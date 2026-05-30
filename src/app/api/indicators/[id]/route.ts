@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getIndicator } from '@/lib/indicators/definitions'
+import { getIndicator } from '@/lib/indicators/registry'
 import { getRecentValues } from '@/lib/db/queries'
 import { toPoints, yoy } from '@/lib/indicators/normalize'
 

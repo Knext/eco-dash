@@ -18,7 +18,7 @@ import {
   toPoints,
   yoy,
 } from '../indicators/normalize'
-import { INDICATORS } from '../indicators/definitions'
+import { INDICATORS } from '../indicators/registry'
 import type { Point } from '../indicators/normalize'
 
 const HYSTERESIS_FALSE_THRESHOLD = 3
