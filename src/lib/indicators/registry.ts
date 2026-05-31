@@ -48,6 +48,8 @@ import KOSPI from './KOSPI'
 import KOSPI_PBR from './KOSPI_PBR'
 import KOSPI_PER from './KOSPI_PER'
 import SP500 from './SP500'
+import SP500_PER from './SP500_PER'
+import SP500_PBR from './SP500_PBR'
 
 const PLUGINS: readonly IndicatorPlugin[] = [
   VIXCLS,
@@ -84,6 +86,8 @@ const PLUGINS: readonly IndicatorPlugin[] = [
   KOSPI_PBR,
   KOSPI_PER,
   SP500,
+  SP500_PER,
+  SP500_PBR,
 ]
 
 const PLUGIN_BY_ID = new Map<string, IndicatorPlugin>(PLUGINS.map((p) => [p.def.id, p]))

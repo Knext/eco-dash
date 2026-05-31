@@ -8,6 +8,7 @@ import { kosisFetcher } from './kosis'
 import { yfinanceFetcher } from './yfinance'
 import { stooqFetcher } from './stooq'
 import { krxFetcher } from './krx'
+import { multplFetcher } from './multpl'
 import { manualFetcher } from './manual'
 import type { FetcherSpec, OptionsBySource, SourceName } from './options'
 import type { SourceFetcher, FetchResult } from './types'
@@ -21,6 +22,7 @@ const FETCHERS: Record<SourceName, SourceFetcher<any>> = {
   yfinance: yfinanceFetcher,
   stooq: stooqFetcher,
   krx: krxFetcher,
+  multpl: multplFetcher,
   manual: manualFetcher,
 }
 
@@ -95,4 +97,4 @@ export async function fetchAndStore(def: IndicatorDef, startDate?: string): Prom
   return result
 }
 
-export { fredFetcher, ecosFetcher, kitaFetcher, kosisFetcher, yfinanceFetcher, stooqFetcher, krxFetcher, manualFetcher }
+export { fredFetcher, ecosFetcher, kitaFetcher, kosisFetcher, yfinanceFetcher, stooqFetcher, krxFetcher, multplFetcher, manualFetcher }

@@ -52,6 +52,16 @@ export interface KrxOptions {
   readonly valueKey: 'PBR' | 'PER' | 'DVD_YLD'
 }
 
+/**
+ * multpl.com S&P 500 밸류에이션 시계열. FRED/yfinance에는 S&P 500의
+ * PER/PBR 시계열이 없어 이 소스로 수집한다(로그인·키 불필요, HTML 표 파싱).
+ *   pe — S&P 500 PE Ratio (월간)
+ *   pb — S&P 500 Price to Book (분기)
+ */
+export interface MultplOptions {
+  readonly metric: 'pe' | 'pb'
+}
+
 /** Manual fetcher keys on indicatorId; no source-specific options. */
 export type ManualOptions = Record<string, never>
 
@@ -63,6 +73,7 @@ export interface OptionsBySource {
   yfinance: YFinanceOptions
   stooq: StooqOptions
   krx: KrxOptions
+  multpl: MultplOptions
   manual: ManualOptions
 }
 
@@ -117,6 +128,8 @@ export function coerceOptions<S extends SourceName>(
     }
     case 'kita':
       return { kind: legacy as KitaOptions['kind'] } as OptionsBySource[S]
+    case 'multpl':
+      return { metric: (legacy === 'pb' ? 'pb' : 'pe') } as OptionsBySource[S]
     case 'manual':
       return {} as OptionsBySource[S]
   }

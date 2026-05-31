@@ -10,10 +10,15 @@ import { toPoints, yoy, lastValue } from '@/lib/indicators/normalize'
 
 export const dynamic = 'force-dynamic'
 
-// YoY transforms need >=13 months of history so the ±15-day match can find a
-// prior point; everything else only needs enough tail for the 90-pt sparkline.
-function windowDaysFor(transform: string | undefined): number {
-  return transform === 'yoy' ? 800 : 400
+// History window (days) sized so the 90-pt sparkline fills out per data
+// frequency: daily series need only ~400d (~280 trading pts), but low-freq
+// monthly/quarterly series (e.g. S&P 500 PER monthly, PBR quarterly) need a
+// far wider window or the sparkline collapses to a handful of points.
+// YoY transforms separately need >=13 months for the ±15-day prior match.
+function windowDaysFor(def: { transform?: string; updateCadence: string }): number {
+  if (def.transform === 'yoy') return 800
+  if (def.updateCadence === 'monthly') return 2800 // ~90 monthly / ~30 quarterly pts
+  return 400
 }
 
 export async function GET() {
@@ -43,7 +48,7 @@ export async function GET() {
   const allIds = targets.map((d) => d.id)
   const windowGroups = new Map<number, string[]>()
   for (const def of targets) {
-    const days = windowDaysFor(def.transform)
+    const days = windowDaysFor(def)
     const ids = windowGroups.get(days)
     if (ids) ids.push(def.id)
     else windowGroups.set(days, [def.id])
