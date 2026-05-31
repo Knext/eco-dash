@@ -33,6 +33,9 @@ import KR_10Y from './KR_10Y'
 import BAMLH0A0HYM2 from './BAMLH0A0HYM2'
 import DTWEXBGS from './DTWEXBGS'
 import DCOILWTICO from './DCOILWTICO'
+import DCOILBRENTEU from './DCOILBRENTEU'
+import POILDUBUSDM from './POILDUBUSDM'
+import DHHNGSP from './DHHNGSP'
 import GOLD from './GOLD'
 import SILVER from './SILVER'
 import COPPER from './COPPER'
@@ -71,6 +74,9 @@ const PLUGINS: readonly IndicatorPlugin[] = [
   BAMLH0A0HYM2,
   DTWEXBGS,
   DCOILWTICO,
+  DCOILBRENTEU,
+  POILDUBUSDM,
+  DHHNGSP,
   GOLD,
   SILVER,
   COPPER,
