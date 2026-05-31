@@ -63,7 +63,7 @@ const TABS: readonly TabSpec[] = [
   { id: 'fx', label: '외환', categories: ['fx'] },
   { id: 'commodity', label: '상품', categories: ['commodity'] },
   { id: 'equity', label: '주식', categories: ['equity'] },
-  { id: 'korea', label: '한국', categories: ['korea'] },
+  { id: 'korea', label: '한국 무역', categories: ['korea'] },
   { id: 'other', label: '기타', categories: ['volatility', 'credit'] },
 ]
 
