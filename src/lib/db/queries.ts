@@ -5,7 +5,6 @@ import type {
   CooldownRow,
   RegimeRow,
   FetchLogRow,
-  ReleaseRow,
   RuleStateRow,
 } from './types'
 
@@ -460,39 +459,6 @@ export async function getRecentFetchLog(limit: number = 50): Promise<FetchLogRow
       error: asStringOrNull(row.error),
       duration_ms: row.duration_ms !== null && row.duration_ms !== undefined ? asInt(row.duration_ms) : null,
     }
-  })
-}
-
-export async function getUpcomingReleases(days: number = 7): Promise<ReleaseRow[]> {
-  await ensureSchema()
-  const db = getDb()
-  const res = await db.execute({
-    sql: `SELECT * FROM release_schedule
-          WHERE due_at_kst >= datetime('now')
-            AND due_at_kst < datetime('now', '+' || ? || ' days')
-          ORDER BY due_at_kst ASC`,
-    args: [days],
-  })
-  return res.rows.map((r) => {
-    const row = r as Row
-    return {
-      id: asString(row.id),
-      event_name: asString(row.event_name),
-      country: asString(row.country),
-      due_at_et: asString(row.due_at_et),
-      due_at_kst: asString(row.due_at_kst),
-      importance: asInt(row.importance) as 1 | 2 | 3,
-    }
-  })
-}
-
-export async function upsertRelease(row: ReleaseRow): Promise<void> {
-  await ensureSchema()
-  const db = getDb()
-  await db.execute({
-    sql: `INSERT OR REPLACE INTO release_schedule (id, event_name, country, due_at_et, due_at_kst, importance)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [row.id, row.event_name, row.country, row.due_at_et, row.due_at_kst, row.importance],
   })
 }
 

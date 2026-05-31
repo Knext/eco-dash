@@ -50,12 +50,3 @@ export interface FetchLogRow {
   error: string | null
   duration_ms: number | null
 }
-
-export interface ReleaseRow {
-  id: string
-  event_name: string
-  country: string
-  due_at_et: string
-  due_at_kst: string
-  importance: 1 | 2 | 3
-}

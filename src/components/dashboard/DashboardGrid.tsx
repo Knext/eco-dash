@@ -21,8 +21,6 @@ import {
 import { IndicatorCard } from '@/components/widgets/IndicatorCard'
 import { SortableIndicatorCard } from '@/components/widgets/SortableIndicatorCard'
 import { AlertBanner } from '@/components/widgets/AlertBanner'
-import { AlertFeed } from '@/components/widgets/AlertFeed'
-import { ReleaseSchedule } from '@/components/widgets/ReleaseSchedule'
 import { useCardOrder } from '@/lib/useCardOrder'
 import { cn } from '@/lib/utils'
 import { getPlugin } from '@/lib/indicators/registry'
@@ -169,7 +167,7 @@ export function DashboardGrid() {
     <>
       <AlertBanner signals={signals} onDismiss={dismiss} />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <div>
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-body-strong text-ink dark:text-canvas">
@@ -289,11 +287,6 @@ export function DashboardGrid() {
               </div>
             </div>
           </section>
-
-          <aside className="space-y-4">
-            <AlertFeed signals={signals} />
-            <ReleaseSchedule />
-          </aside>
         </div>
 
         <footer className="mt-section text-center text-caption-sm text-ash">

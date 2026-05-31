@@ -59,15 +59,6 @@ CREATE TABLE IF NOT EXISTS fetch_log (
 );
 CREATE INDEX IF NOT EXISTS idx_fetch_log_recent ON fetch_log(fetched_at DESC);
 
-CREATE TABLE IF NOT EXISTS release_schedule (
-  id TEXT PRIMARY KEY,
-  event_name TEXT NOT NULL,
-  country TEXT NOT NULL,
-  due_at_et TEXT NOT NULL,
-  due_at_kst TEXT NOT NULL,
-  importance INTEGER NOT NULL CHECK(importance BETWEEN 1 AND 3)
-);
-
 CREATE TABLE IF NOT EXISTS manual_overrides (
   indicator_id TEXT NOT NULL,
   as_of TEXT NOT NULL,
