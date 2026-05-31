@@ -1,5 +1,5 @@
 import './load-env'
-import { env, hasFred, hasEcos } from '../src/lib/env'
+import { env, hasFred, hasEcos, hasKrx } from '../src/lib/env'
 import { getDb, ensureSchema } from '../src/lib/db/client'
 import { getRecentFetchLog } from '../src/lib/db/queries'
 
@@ -7,6 +7,7 @@ function checkApiKeys() {
   console.log('\n=== API Keys ===')
   console.log(`FRED_API_KEY: ${hasFred ? 'set' : 'missing'}`)
   console.log(`ECOS_API_KEY: ${hasEcos ? 'set' : 'missing'}`)
+  console.log(`KRX_ID/KRX_PW: ${hasKrx ? 'set' : 'missing (KOSPI PBR 수집 불가)'}`)
 }
 
 async function checkDb() {
