@@ -16,7 +16,8 @@ const KOSPI_PBR: IndicatorPlugin = {
     category: 'equity',
     unit: 'ratio',
     precision: 2,
-    thresholds: { normal: [0, 99999], watch: [0, 99999], alert: [0, 99999], direction: 'above' },
+    // 차트 전용(시그널 미발생). 빈 범위([0,0])라 judge()가 항상 'normal' 반환.
+    thresholds: { normal: [0, 0], watch: [0, 0], alert: [0, 0], direction: 'above' },
     updateCadence: 'daily',
     description:
       'KOSPI 종합지수 주가순자산비율(PBR). 출처: KRX 시장정보(MDCSTAT00702, 가중 PBR). 1배 미만은 지수 시가총액이 장부상 순자산을 밑도는 수준. 수집에 KRX 로그인(KRX_ID/KRX_PW) 필요.',

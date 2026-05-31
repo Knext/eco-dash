@@ -15,7 +15,8 @@ const KOSPI_PER: IndicatorPlugin = {
     category: 'equity',
     unit: 'ratio',
     precision: 2,
-    thresholds: { normal: [0, 99999], watch: [0, 99999], alert: [0, 99999], direction: 'above' },
+    // 차트 전용(시그널 미발생). 빈 범위([0,0])라 judge()가 항상 'normal' 반환.
+    thresholds: { normal: [0, 0], watch: [0, 0], alert: [0, 0], direction: 'above' },
     updateCadence: 'daily',
     description:
       'KOSPI 종합지수 주가수익비율(PER). 출처: KRX 시장정보(MDCSTAT00702, 가중 PER). 이익 대비 지수의 밸류에이션 수준. 수집에 KRX 로그인(KRX_ID/KRX_PW) 필요.',
