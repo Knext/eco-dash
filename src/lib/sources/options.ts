@@ -36,6 +36,22 @@ export interface KitaOptions {
   readonly kind: 'EXPORT_TOTAL_YOY' | 'EXPORT_SEMICONDUCTOR_YOY' | 'TRADE_BALANCE'
 }
 
+/**
+ * KRX Market Data (data.krx.co.kr) 개별지수 PER/PBR/배당수익률 시계열 —
+ * `MDCSTAT00702` 엔드포인트 (pykrx의 `PER_PBR_배당수익률_개별지수`와 동일).
+ * KOSPI PBR은 FRED/ECOS/yfinance에 없어 이 소스로 수집한다. 단 MDCSTAT*
+ * 통계 API는 KRX 로그인을 요구한다(KRX_ID/KRX_PW). [[krx-requires-login]]
+ *   indTpCd  — 지수 그룹 id (KRX 내부 티커 1번째 자리): '1'=KOSPI계열, '2'=KOSDAQ계열
+ *   indTpCd2 — 그룹 내 지수 id (티커 마지막 3자리): '001'=코스피 종합
+ *   valueKey — 읽을 값: 'PBR' | 'PER' | 'DVD_YLD' (내부에서 KRX 필드명으로 매핑)
+ * 예) KOSPI(티커 1001) PBR → { indTpCd: '1', indTpCd2: '001', valueKey: 'PBR' }
+ */
+export interface KrxOptions {
+  readonly indTpCd: string
+  readonly indTpCd2: string
+  readonly valueKey: 'PBR' | 'PER' | 'DVD_YLD'
+}
+
 /** Manual fetcher keys on indicatorId; no source-specific options. */
 export type ManualOptions = Record<string, never>
 
@@ -46,6 +62,7 @@ export interface OptionsBySource {
   kosis: KosisOptions
   yfinance: YFinanceOptions
   stooq: StooqOptions
+  krx: KrxOptions
   manual: ManualOptions
 }
 
@@ -89,6 +106,15 @@ export function coerceOptions<S extends SourceName>(
       return { paramKey: legacy as KosisOptions['paramKey'] } as OptionsBySource[S]
     case 'stooq':
       return { symbol: legacy } as OptionsBySource[S]
+    case 'krx': {
+      // legacy form: "indTpCd/indTpCd2/valueKey" e.g. "1/001/PBR"
+      const [indTpCd, indTpCd2, valueKey] = legacy.split('/')
+      return {
+        indTpCd: indTpCd ?? '1',
+        indTpCd2: indTpCd2 ?? '001',
+        valueKey: (valueKey ?? 'PBR') as KrxOptions['valueKey'],
+      } as OptionsBySource[S]
+    }
     case 'kita':
       return { kind: legacy as KitaOptions['kind'] } as OptionsBySource[S]
     case 'manual':

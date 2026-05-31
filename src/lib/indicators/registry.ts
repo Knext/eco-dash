@@ -45,6 +45,8 @@ import EURKRW from './EURKRW'
 import JPYKRW from './JPYKRW'
 import USDJPY from './USDJPY'
 import KOSPI from './KOSPI'
+import KOSPI_PBR from './KOSPI_PBR'
+import KOSPI_PER from './KOSPI_PER'
 import SP500 from './SP500'
 
 const PLUGINS: readonly IndicatorPlugin[] = [
@@ -79,6 +81,8 @@ const PLUGINS: readonly IndicatorPlugin[] = [
   JPYKRW,
   USDJPY,
   KOSPI,
+  KOSPI_PBR,
+  KOSPI_PER,
   SP500,
 ]
 

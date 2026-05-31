@@ -12,7 +12,7 @@ export type Category =
  * @deprecated Use `SourceName` from `../sources/options` — this alias
  * exists only for any external callers still importing the old name.
  */
-export type SourceType = 'fred' | 'ecos' | 'kita' | 'kosis' | 'yfinance' | 'stooq' | 'manual'
+export type SourceType = 'fred' | 'ecos' | 'kita' | 'kosis' | 'yfinance' | 'stooq' | 'krx' | 'manual'
 
 export type Cadence = 'daily' | 'weekly' | 'monthly'
 

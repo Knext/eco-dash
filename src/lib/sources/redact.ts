@@ -6,6 +6,7 @@ const SECRETS: string[] = [
   env.ALPHA_VANTAGE_KEY ?? '',
   env.PUBLIC_DATA_API_KEY ?? '',
   env.CRON_SECRET ?? '',
+  env.KRX_PW ?? '',
 ].filter((s): s is string => typeof s === 'string' && s.length >= 8)
 
 export function redact(message: string): string {

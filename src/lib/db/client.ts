@@ -32,9 +32,11 @@ export function getDb(): Client {
 export async function ensureSchema(): Promise<void> {
   if (_schemaApplied) return
   const db = getDb()
-  for (const stmt of SCHEMA_STATEMENTS) {
-    await db.execute(stmt)
-  }
+  // One batched round-trip instead of N sequential CREATEs. On a remote
+  // (Turso/HTTP) DB this turns ~12 cold-start round-trips into 1, which
+  // directly cuts first-request latency. The statements are idempotent
+  // (IF NOT EXISTS), so the implicit transaction is safe to re-run.
+  await db.batch([...SCHEMA_STATEMENTS], 'write')
   _schemaApplied = true
 }
 

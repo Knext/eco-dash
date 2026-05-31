@@ -146,6 +146,83 @@ export async function getRecentValues(
   return res.rows.map((r) => rowToTimeseries(r as Row))
 }
 
+/**
+ * Batched latest-row lookup for the dashboard list view. Returns the most
+ * recent row per indicator (absolute, ignoring any window) in a SINGLE
+ * query, replacing N separate `getLatestValue` round-trips. Stale
+ * indicators still resolve so the UI can show their last asOf/source.
+ */
+export async function getLatestValuesBatch(
+  indicatorIds: readonly string[],
+): Promise<Map<string, TimeSeriesRow>> {
+  const out = new Map<string, TimeSeriesRow>()
+  if (indicatorIds.length === 0) return out
+  await ensureSchema()
+  const db = getDb()
+  const placeholders = indicatorIds.map(() => '?').join(', ')
+  const res = await db.execute({
+    sql: `SELECT indicator_id, as_of, value, source, fetched_at FROM (
+            SELECT *, ROW_NUMBER() OVER (
+                     PARTITION BY indicator_id
+                     ORDER BY as_of DESC, fetched_at DESC
+                   ) AS rn
+            FROM timeseries
+            WHERE indicator_id IN (${placeholders})
+          ) WHERE rn = 1`,
+    args: [...indicatorIds],
+  })
+  for (const r of res.rows) {
+    const row = rowToTimeseries(r as Row)
+    out.set(row.indicator_id, row)
+  }
+  return out
+}
+
+/**
+ * Batched recent-history lookup for the dashboard list view. For each id,
+ * returns rows within the window locked to the indicator's latest source
+ * (same scale-mixing guard as `getRecentValues`), grouped by id and sorted
+ * ascending — all in a SINGLE query instead of 2×N round-trips.
+ */
+export async function getRecentValuesBatch(
+  indicatorIds: readonly string[],
+  days: number,
+): Promise<Map<string, TimeSeriesRow[]>> {
+  const out = new Map<string, TimeSeriesRow[]>()
+  if (indicatorIds.length === 0) return out
+  await ensureSchema()
+  const db = getDb()
+  const placeholders = indicatorIds.map(() => '?').join(', ')
+  // CTE `latest` resolves each indicator's most recent source; the join
+  // then keeps only rows from that source within the window.
+  const res = await db.execute({
+    sql: `WITH latest AS (
+            SELECT indicator_id, source FROM (
+              SELECT indicator_id, source, ROW_NUMBER() OVER (
+                       PARTITION BY indicator_id
+                       ORDER BY as_of DESC, fetched_at DESC
+                     ) AS rn
+              FROM timeseries
+              WHERE indicator_id IN (${placeholders})
+            ) WHERE rn = 1
+          )
+          SELECT t.indicator_id, t.as_of, t.value, t.source, t.fetched_at
+          FROM timeseries t
+          JOIN latest l
+            ON t.indicator_id = l.indicator_id AND t.source = l.source
+          WHERE t.as_of >= date('now', '-' || ? || ' days')
+          ORDER BY t.indicator_id ASC, t.as_of ASC`,
+    args: [...indicatorIds, days],
+  })
+  for (const r of res.rows) {
+    const row = rowToTimeseries(r as Row)
+    const arr = out.get(row.indicator_id)
+    if (arr) arr.push(row)
+    else out.set(row.indicator_id, [row])
+  }
+  return out
+}
+
 export async function insertSignal(
   row: Omit<SignalRow, 'resolved_at' | 'dismissed_at'> & { resolved_at?: string | null },
 ): Promise<void> {

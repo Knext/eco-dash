@@ -15,6 +15,11 @@ const envSchema = z.object({
   KOSIS_KR_EXPORT_PARAMS: z.string().optional(),
   KOSIS_KR_EXPORT_SEMI_PARAMS: z.string().optional(),
   KOSIS_KR_TB_PARAMS: z.string().optional(),
+  // KRX 데이터포털(data.krx.co.kr) 계정. MDCSTAT* 통계 API는 2024년 말부터
+  // 로그인을 요구하므로 KRX 소스(KOSPI PBR 등)는 이 자격증명이 있어야 동작한다.
+  // 무료 회원가입: https://data.krx.co.kr 우상단 회원가입.
+  KRX_ID: z.string().optional(),
+  KRX_PW: z.string().optional(),
   DB_PATH: z.string().default('./data/timeseries.db'),
   TURSO_DATABASE_URL: z.string().optional(),
   TURSO_AUTH_TOKEN: z.string().optional(),
@@ -47,6 +52,8 @@ const parseResult = envSchema.safeParse({
   KOSIS_KR_EXPORT_PARAMS: process.env.KOSIS_KR_EXPORT_PARAMS,
   KOSIS_KR_EXPORT_SEMI_PARAMS: process.env.KOSIS_KR_EXPORT_SEMI_PARAMS,
   KOSIS_KR_TB_PARAMS: process.env.KOSIS_KR_TB_PARAMS,
+  KRX_ID: process.env.KRX_ID || undefined,
+  KRX_PW: process.env.KRX_PW || undefined,
   DB_PATH: process.env.DB_PATH,
   TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
   TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
@@ -72,3 +79,4 @@ export const env: Env = parseResult.data
 
 export const hasFred = !!env.FRED_API_KEY
 export const hasEcos = !!env.ECOS_API_KEY
+export const hasKrx = !!(env.KRX_ID && env.KRX_PW)
